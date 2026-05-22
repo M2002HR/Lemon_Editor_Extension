@@ -18,7 +18,6 @@ import TableCell from '@tiptap/extension-table-cell';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import { buildDefaultFilename } from './content/dom.js';
-import { EXTENSION_API_BASE_URL } from './config.js';
 import { buildFontFaceCss, getFontFamilies } from './fonts.js';
 import { normalizeExportOptions } from './options.js';
 import type { PdfRenderOptions } from './types.js';
@@ -81,7 +80,24 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
             <p>Initial content is normalized into editor document model, then edited as rich content.</p>
           </div>
         </div>
-        <button type="button" class="mdpdf-editor-close" aria-label="Close">✕</button>
+        <div class="mdpdf-topbar-actions">
+          <label class="mdpdf-topbar-field" title="Output file name">
+            <i class="fi fi-rr-file"></i>
+            <input name="filename" type="text" value="${escapeAttribute(args.filename || buildDefaultFilename())}" />
+          </label>
+          <label class="mdpdf-option-chip mdpdf-option-chip-top" title="Save these options as default">
+            <input type="checkbox" name="saveAsDefault" />
+            <i class="fi fi-rr-disk"></i>
+            <span>Save Default</span>
+          </label>
+          <button type="button" class="mdpdf-secondary" data-action="cancel" title="Cancel editor">
+            <i class="fi fi-rr-cross-small"></i><span>Cancel</span>
+          </button>
+          <button type="button" class="mdpdf-primary" data-action="download" title="Download final PDF">
+            <i class="fi fi-rr-download"></i><span>Download PDF</span>
+          </button>
+          <button type="button" class="mdpdf-editor-close" aria-label="Close" title="Close editor">✕</button>
+        </div>
       </header>
 
       <div class="mdpdf-editor-main">
@@ -140,6 +156,56 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
                 <button type="button" data-action="alignJustify" title="Justify"><i class="fi-rr-align-justify"></i><span>Justify</span></button>
                 <button type="button" data-action="rtl" title="Right to left line"><i class="fi-rr-text-width"></i><span>RTL</span></button>
                 <button type="button" data-action="ltr" title="Left to right line"><i class="fi-rr-text-width mdpdf-icon-flip"></i><span>LTR</span></button>
+              </div>
+            </div>
+
+            <div class="mdpdf-tool-group">
+              <span class="mdpdf-tool-title">PDF Layout</span>
+              <div class="mdpdf-tool-items">
+                <label class="mdpdf-inline-control" title="Text direction in PDF">
+                  <i class="fi fi-rr-text-width"></i>
+                  <select class="mdpdf-editor-select" name="direction">
+                    <option value="auto">Direction: Auto</option>
+                    <option value="rtl">Direction: RTL</option>
+                    <option value="ltr">Direction: LTR</option>
+                  </select>
+                </label>
+                <label class="mdpdf-inline-control" title="Base font size in PDF">
+                  <i class="fi fi-rr-text-size"></i>
+                  <select class="mdpdf-editor-select" name="fontSize">
+                    <option value="small">Size: Small</option>
+                    <option value="medium">Size: Medium</option>
+                    <option value="large">Size: Large</option>
+                  </select>
+                </label>
+                <label class="mdpdf-inline-control" title="Line spacing density in PDF">
+                  <i class="fi fi-rr-layers"></i>
+                  <select class="mdpdf-editor-select" name="density">
+                    <option value="compact">Density: Compact</option>
+                    <option value="normal">Density: Normal</option>
+                    <option value="relaxed">Density: Relaxed</option>
+                  </select>
+                </label>
+                <label class="mdpdf-option-chip" title="Keep headings and blocks from awkward page breaks">
+                  <input type="checkbox" name="smartPagination" />
+                  <i class="fi fi-rr-calendar-check"></i>
+                  <span>Smart Pagination</span>
+                </label>
+                <label class="mdpdf-option-chip" title="Draw border in each PDF page">
+                  <input type="checkbox" name="pageBorder" />
+                  <i class="fi fi-rr-border-all"></i>
+                  <span>Page Border</span>
+                </label>
+                <label class="mdpdf-option-chip" title="Show page numbers">
+                  <input type="checkbox" name="pageNumbers" />
+                  <i class="fi fi-rr-list-check"></i>
+                  <span>Page Numbers</span>
+                </label>
+                <label class="mdpdf-option-chip" title="Wrap long code lines in output">
+                  <input type="checkbox" name="codeWrap" />
+                  <i class="fi fi-rr-paragraph-left"></i>
+                  <span>Code Wrap</span>
+                </label>
               </div>
             </div>
 
@@ -226,62 +292,6 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
           </div>
         </section>
 
-        <aside class="mdpdf-editor-right">
-          <label>
-            <span>File name</span>
-            <input name="filename" type="text" value="${escapeAttribute(args.filename || buildDefaultFilename())}" />
-          </label>
-
-          <label>
-            <span>Direction</span>
-            <select name="direction">
-              <option value="auto">Auto detect</option>
-              <option value="rtl">RTL</option>
-              <option value="ltr">LTR</option>
-            </select>
-          </label>
-
-          <label>
-            <span>Font size</span>
-            <select name="fontSize">
-              <option value="small">Small</option>
-              <option value="medium">Medium</option>
-              <option value="large">Large</option>
-            </select>
-          </label>
-
-          <label>
-            <span>Density</span>
-            <select name="density">
-              <option value="compact">Compact</option>
-              <option value="normal">Normal</option>
-              <option value="relaxed">Relaxed</option>
-            </select>
-          </label>
-
-          <label class="mdpdf-editor-check"><input type="checkbox" name="smartPagination" /> Smart pagination</label>
-          <label class="mdpdf-editor-check"><input type="checkbox" name="pageBorder" /> Border for each page</label>
-          <label class="mdpdf-editor-check"><input type="checkbox" name="pageNumbers" /> Page numbers</label>
-          <label class="mdpdf-editor-check"><input type="checkbox" name="codeWrap" /> Wrap long code lines</label>
-          <label class="mdpdf-editor-check"><input type="checkbox" name="saveAsDefault" /> Save as default settings</label>
-
-          <p class="mdpdf-editor-note">Preview uses the same render API as final download, so final PDF should match this preview.</p>
-
-          <div class="mdpdf-live-preview">
-            <div class="mdpdf-live-preview-header">
-              <strong>Final PDF Live Preview</strong>
-              <span class="mdpdf-live-preview-status">Idle</span>
-            </div>
-            <div class="mdpdf-live-preview-frame-wrap">
-              <iframe class="mdpdf-live-preview-frame" title="Live PDF preview"></iframe>
-            </div>
-          </div>
-
-          <div class="mdpdf-editor-actions">
-            <button type="button" class="mdpdf-secondary" data-action="cancel">Cancel</button>
-            <button type="button" class="mdpdf-primary" data-action="download">Download PDF</button>
-          </div>
-        </aside>
       </div>
     </div>
   `;
@@ -301,8 +311,6 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
   const pageNumbersInput = backdrop.querySelector<HTMLInputElement>('input[name="pageNumbers"]');
   const codeWrapInput = backdrop.querySelector<HTMLInputElement>('input[name="codeWrap"]');
   const saveAsDefaultInput = backdrop.querySelector<HTMLInputElement>('input[name="saveAsDefault"]');
-  const livePreviewFrame = backdrop.querySelector<HTMLIFrameElement>('.mdpdf-live-preview-frame');
-  const livePreviewStatus = backdrop.querySelector<HTMLElement>('.mdpdf-live-preview-status');
 
   if (
     !editorContainer ||
@@ -317,9 +325,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
     !pageBorderInput ||
     !pageNumbersInput ||
     !codeWrapInput ||
-    !saveAsDefaultInput ||
-    !livePreviewFrame ||
-    !livePreviewStatus
+    !saveAsDefaultInput
   ) {
     backdrop.remove();
     return Promise.resolve(null);
@@ -405,26 +411,6 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
   let sidebarHistoryIndex = 0;
   let applyingSidebarHistory = false;
 
-  let previewTimer: number | null = null;
-  let previewAbort: AbortController | null = null;
-  let previewUrl: string | null = null;
-
-  const setLivePreviewStatus = (text: string, loading = false) => {
-    livePreviewStatus.textContent = text;
-    livePreviewStatus.classList.toggle('mdpdf-loading', loading);
-  };
-
-  const schedulePdfPreview = () => {
-    if (previewTimer !== null) {
-      window.clearTimeout(previewTimer);
-    }
-
-    previewTimer = window.setTimeout(() => {
-      previewTimer = null;
-      void updatePdfPreview();
-    }, 520);
-  };
-
   const syncPreviewLayout = () => {
     const options = readOptionsFromSidebar();
     const root = getEditorRoot();
@@ -434,7 +420,6 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
 
   const syncLivePreview = () => {
     syncPreviewLayout();
-    schedulePdfPreview();
   };
 
   const pushSidebarHistory = () => {
@@ -469,52 +454,6 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
     pageNumbersInput.checked = snapshot.pageNumbers;
     codeWrapInput.checked = snapshot.codeWrap;
     applyingSidebarHistory = false;
-  };
-
-  const updatePdfPreview = async () => {
-    const options = readOptionsFromSidebar();
-    const payload = {
-      html: buildExportHtml(editor),
-      options
-    };
-
-    if (previewAbort) {
-      previewAbort.abort();
-    }
-
-    previewAbort = new AbortController();
-    setLivePreviewStatus('Rendering preview...', true);
-
-    try {
-      const response = await fetch(`${EXTENSION_API_BASE_URL}/api/v1/markdown-to-pdf`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: previewAbort.signal
-      });
-
-      if (!response.ok) {
-        const reason = await safeTextFromResponse(response);
-        throw new Error(`Preview failed (${response.status}): ${reason}`);
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-
-      previewUrl = url;
-      livePreviewFrame.src = url;
-      setLivePreviewStatus('Preview up to date');
-    } catch (error) {
-      if ((error as Error).name === 'AbortError') {
-        return;
-      }
-
-      setLivePreviewStatus(error instanceof Error ? error.message : 'Preview failed');
-    }
   };
 
   const setActiveStates = () => {
@@ -655,16 +594,6 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
       pageNumbersInput.removeEventListener('change', onSidebarMutation);
       codeWrapInput.removeEventListener('change', onSidebarMutation);
       filenameInput.removeEventListener('input', onSidebarMutation);
-
-      if (previewTimer !== null) {
-        window.clearTimeout(previewTimer);
-      }
-      if (previewAbort) {
-        previewAbort.abort();
-      }
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
 
       cleanupContextMenu();
       editor.destroy();
@@ -1237,20 +1166,6 @@ function normalizeHexColor(color: string): string {
   return `#${r}${g}${b}`;
 }
 
-async function safeTextFromResponse(response: Response): Promise<string> {
-  try {
-    const data = (await response.json()) as { error?: string };
-    if (typeof data.error === 'string' && data.error.trim()) {
-      return data.error;
-    }
-  } catch {
-    // ignore
-  }
-
-  const text = await response.text().catch(() => '');
-  return text.trim() || response.statusText || 'Unknown error';
-}
-
 export const __editorTestUtils = {
   applyPreviewSettings,
   renderPageOverlay,
@@ -1335,6 +1250,38 @@ function editorUiCss(): string {
   background: #f9fcff;
 }
 
+.mdpdf-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.mdpdf-topbar-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #c9d8f1;
+  border-radius: 10px;
+  background: #fff;
+  padding: 0 8px;
+  height: 34px;
+}
+
+.mdpdf-topbar-field i {
+  font-size: 14px;
+  color: #4a6290;
+}
+
+.mdpdf-topbar-field input {
+  border: 0;
+  outline: none;
+  min-width: 220px;
+  font-size: 12px;
+  background: transparent;
+}
+
 .mdpdf-editor-brand {
   display: flex;
   align-items: center;
@@ -1371,7 +1318,7 @@ function editorUiCss(): string {
 
 .mdpdf-editor-main {
   display: grid;
-  grid-template-columns: 1fr 330px;
+  grid-template-columns: 1fr;
   min-height: 0;
 }
 
@@ -1410,6 +1357,47 @@ function editorUiCss(): string {
 
 .mdpdf-editor-select {
   min-width: 126px;
+}
+
+.mdpdf-inline-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #c9d8f1;
+  border-radius: 8px;
+  background: #fff;
+  padding-inline-start: 8px;
+}
+
+.mdpdf-inline-control i {
+  font-size: 14px;
+  color: #4a6290;
+}
+
+.mdpdf-option-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #c9d8f1;
+  border-radius: 999px;
+  background: #fff;
+  padding: 5px 10px;
+  font-size: 11px;
+  color: #334155;
+  user-select: none;
+}
+
+.mdpdf-option-chip input {
+  margin: 0;
+}
+
+.mdpdf-option-chip i {
+  font-size: 13px;
+}
+
+.mdpdf-option-chip-top {
+  height: 34px;
+  border-radius: 10px;
 }
 
 .mdpdf-tool-group {
@@ -1707,101 +1695,17 @@ function editorUiCss(): string {
   text-decoration: none;
 }
 
-.mdpdf-editor-right {
-  padding: 14px;
-  overflow: auto;
-  background: #f8fbff;
-  display: grid;
-  align-content: start;
-  gap: 9px;
-}
-
-.mdpdf-editor-right label {
-  display: grid;
-  gap: 5px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.mdpdf-editor-right input[type="text"],
-.mdpdf-editor-right select {
-  border: 1px solid #c9d8f1;
-  border-radius: 10px;
-  padding: 8px;
-  background: #fff;
-}
-
-.mdpdf-editor-check {
-  display: flex !important;
-  align-items: center;
-  gap: 8px;
-  font-weight: 500 !important;
-}
-
-.mdpdf-editor-note {
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: #475569;
-}
-
-.mdpdf-live-preview {
-  margin-top: 6px;
-  border: 1px solid #d4e1f6;
-  border-radius: 12px;
-  background: #fff;
-  overflow: hidden;
-}
-
-.mdpdf-live-preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 10px;
-  border-bottom: 1px solid #e2e8f7;
-  font-size: 12px;
-}
-
-.mdpdf-live-preview-status {
-  color: #475569;
-}
-
-.mdpdf-live-preview-status.mdpdf-loading::after {
-  content: '';
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  margin-inline-start: 6px;
-  border-radius: 50%;
-  border: 2px solid #cbd5e1;
-  border-top-color: #2563eb;
-  animation: mdpdf-spin 0.85s linear infinite;
-}
-
-.mdpdf-live-preview-frame-wrap {
-  height: 260px;
-  background: #f8fbff;
-}
-
-.mdpdf-live-preview-frame {
-  width: 100%;
-  height: 100%;
-  border: 0;
-}
-
-.mdpdf-editor-actions {
-  margin-top: 8px;
-  display: flex;
-  gap: 8px;
-}
-
 .mdpdf-secondary,
 .mdpdf-primary {
-  flex: 1;
   border-radius: 10px;
   border: 1px solid #c8d8f2;
-  padding: 9px 10px;
+  padding: 7px 10px;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
 }
 
 .mdpdf-secondary {
@@ -1821,13 +1725,8 @@ function editorUiCss(): string {
 }
 
 @media (max-width: 1240px) {
-  .mdpdf-editor-main {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr auto;
-  }
-
-  .mdpdf-editor-right {
-    border-top: 1px solid #d9e3f7;
+  .mdpdf-topbar-field input {
+    min-width: 150px;
   }
 }
 `;
