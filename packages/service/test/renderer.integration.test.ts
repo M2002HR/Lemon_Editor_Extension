@@ -20,7 +20,15 @@ describe('renderer integration', () => {
       '| A | B |'
     ].join('\n');
 
-    const pdf = await renderMarkdownToPdf(markdown, 'Integration Test');
+    const pdf = await renderMarkdownToPdf(markdown, 'Integration Test', {
+      direction: 'auto',
+      pageNumbers: true,
+      pageBorder: true,
+      smartPagination: true,
+      fontSize: 'medium',
+      density: 'normal',
+      codeWrap: false
+    });
 
     expect(pdf.length).toBeGreaterThan(1000);
     expect(pdf.subarray(0, 4).toString()).toBe('%PDF');

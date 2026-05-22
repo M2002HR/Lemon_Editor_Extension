@@ -1,11 +1,12 @@
 import cors from 'cors';
-import express, { type Request, type Response, type NextFunction } from 'express';
+import express, { type NextFunction, type Request, type Response } from 'express';
+import { ALLOWED_ORIGIN_PATTERNS, ALLOW_CHROME_EXTENSION_ORIGINS, JSON_BODY_LIMIT } from './constants.js';
 import { renderMarkdownToPdf } from './renderer.js';
-import type { MarkdownToPdfRequestBody } from './types.js';
+import type { MarkdownToPdfRequestBody, PdfInputFormat, PdfRenderOptions } from './types.js';
 import { HttpError, validateRequestBody } from './validation.js';
 
 interface CreateAppOptions {
-  render?: (markdown: string, title?: string) => Promise<Buffer>;
+  render?: (content: string, title: string | undefined, options: PdfRenderOptions, inputFormat: PdfInputFormat) => Promise<Buffer>;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -25,7 +26,7 @@ export function createApp(options: CreateAppOptions = {}) {
     })
   );
 
-  app.use(express.json({ limit: '300kb' }));
+  app.use(express.json({ limit: JSON_BODY_LIMIT }));
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', service: 'markdown-to-pdf' });
@@ -34,7 +35,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.post('/api/v1/markdown-to-pdf', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const payload = validateRequestBody(req.body as MarkdownToPdfRequestBody);
-      const pdf = await render(payload.markdown, payload.title);
+      const pdf = await render(payload.content, payload.title, payload.options, payload.inputFormat);
 
       res
         .status(200)
@@ -65,13 +66,34 @@ export function createApp(options: CreateAppOptions = {}) {
 }
 
 function isAllowedOrigin(origin: string): boolean {
-  if (/^chrome-extension:\/\/[a-p]{32}$/.test(origin)) {
+  if (ALLOW_CHROME_EXTENSION_ORIGINS && /^chrome-extension:\/\/[a-p]{32}$/.test(origin)) {
     return true;
   }
 
-  if (/^https:\/\/(chatgpt\.com|chat\.openai\.com)$/.test(origin)) {
+  return ALLOWED_ORIGIN_PATTERNS.some((pattern) => matchesOriginPattern(origin, pattern));
+}
+
+function matchesOriginPattern(origin: string, pattern: string): boolean {
+  const normalizedPattern = pattern.trim().replace(/\/$/, '');
+  const normalizedOrigin = origin.trim().replace(/\/$/, '');
+
+  if (!normalizedPattern) {
+    return false;
+  }
+
+  if (normalizedPattern === '*') {
     return true;
   }
 
-  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  if (normalizedPattern.endsWith(':*')) {
+    const base = normalizedPattern.slice(0, -2);
+    return normalizedOrigin === base || normalizedOrigin.startsWith(`${base}:`);
+  }
+
+  if (normalizedPattern.endsWith('*')) {
+    const prefix = normalizedPattern.slice(0, -1);
+    return normalizedOrigin.startsWith(prefix);
+  }
+
+  return normalizedOrigin === normalizedPattern;
 }
