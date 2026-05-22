@@ -6,6 +6,7 @@ import puppeteer from 'puppeteer';
 import type { PdfDensity, PdfDirection, PdfFontSize, PdfInputFormat, PdfRenderOptions } from './types.js';
 
 const rtlScript = /[\u0590-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+const PAGE_BORDER_SAFE_PADDING_MM = 10;
 
 interface ResolvedRenderOptions {
   direction: Exclude<PdfDirection, 'auto'>;
@@ -78,7 +79,7 @@ body {
 }
 .page-shell {
   display: flow-root;
-  padding: ${options.pageBorder ? '7mm 7mm 7mm 7mm' : '0'};
+  padding: ${options.pageBorder ? `${PAGE_BORDER_SAFE_PADDING_MM}mm` : '0'};
   position: relative;
   z-index: 2;
 }

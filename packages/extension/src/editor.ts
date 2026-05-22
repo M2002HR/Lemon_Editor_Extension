@@ -60,6 +60,8 @@ const FONT_SIZE_OPTIONS = ['12px', '14px', '16px', '18px', '20px', '24px', '28px
 const MM_TO_PX = 96 / 25.4;
 const PREVIEW_PAGE_HEIGHT = (297 * 96) / 25.4;
 const PREVIEW_MIN_SAFE_BLOCK_HEIGHT = 96;
+const PREVIEW_SAFE_GUARD_PX = 2;
+const PAGE_BORDER_SAFE_PADDING_MM = 10;
 const PREVIEW_SHIFT_ATTR = 'data-mdpdf-preview-shift';
 const PREVIEW_BASE_MARGIN_TOP_ATTR = 'data-mdpdf-preview-base-margin-top';
 const UI_ICON_URLS: Record<string, string> = {
@@ -1098,9 +1100,9 @@ function applyPreviewSettings(root: HTMLElement, canvasWrap: HTMLElement, overla
   const lineHeight = mapLineHeight(options.density);
   const topMargin = options.pageNumbers ? '16mm' : '14mm';
   const bottomMargin = options.pageNumbers ? '18mm' : '14mm';
-  const borderPaddingTop = options.pageBorder ? '7mm' : '0mm';
-  const borderPaddingBottom = options.pageBorder ? '7mm' : '0mm';
-  const borderPaddingSides = options.pageBorder ? '7mm' : '0mm';
+  const borderPaddingTop = options.pageBorder ? `${PAGE_BORDER_SAFE_PADDING_MM}mm` : '0mm';
+  const borderPaddingBottom = options.pageBorder ? `${PAGE_BORDER_SAFE_PADDING_MM}mm` : '0mm';
+  const borderPaddingSides = options.pageBorder ? `${PAGE_BORDER_SAFE_PADDING_MM}mm` : '0mm';
 
   canvasWrap.style.setProperty('--mdpdf-root-font-size', fontSize);
   canvasWrap.style.setProperty('--mdpdf-line-height', lineHeight);
@@ -1193,12 +1195,17 @@ function createPreviewPaginationMetrics(canvasWrap: HTMLElement): PreviewPaginat
 
   const safeTopOffset = topMargin + extraTop;
   const safeBottomOffset = Math.max(safeTopOffset + PREVIEW_MIN_SAFE_BLOCK_HEIGHT, pageHeight - (bottomMargin + extraBottom));
-  const safeHeight = Math.max(PREVIEW_MIN_SAFE_BLOCK_HEIGHT, safeBottomOffset - safeTopOffset);
+  const guardedSafeTop = safeTopOffset + PREVIEW_SAFE_GUARD_PX;
+  const guardedSafeBottom = Math.max(
+    guardedSafeTop + PREVIEW_MIN_SAFE_BLOCK_HEIGHT,
+    safeBottomOffset - PREVIEW_SAFE_GUARD_PX
+  );
+  const safeHeight = Math.max(PREVIEW_MIN_SAFE_BLOCK_HEIGHT, guardedSafeBottom - guardedSafeTop);
 
   return {
     pageHeight,
-    safeTopOffset,
-    safeBottomOffset,
+    safeTopOffset: guardedSafeTop,
+    safeBottomOffset: guardedSafeBottom,
     safeHeight
   };
 }
