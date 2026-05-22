@@ -4,8 +4,13 @@ import { renderMarkdownToPdf } from './renderer.js';
 import type { MarkdownToPdfRequestBody } from './types.js';
 import { HttpError, validateRequestBody } from './validation.js';
 
-export function createApp() {
+interface CreateAppOptions {
+  render?: (markdown: string, title?: string) => Promise<Buffer>;
+}
+
+export function createApp(options: CreateAppOptions = {}) {
   const app = express();
+  const render = options.render ?? renderMarkdownToPdf;
 
   app.use(
     cors({
@@ -29,7 +34,7 @@ export function createApp() {
   app.post('/api/v1/markdown-to-pdf', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const payload = validateRequestBody(req.body as MarkdownToPdfRequestBody);
-      const pdf = await renderMarkdownToPdf(payload.markdown, payload.title);
+      const pdf = await render(payload.markdown, payload.title);
 
       res
         .status(200)
