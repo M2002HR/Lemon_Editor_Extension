@@ -48,8 +48,8 @@ describe('editor utilities', () => {
 
     expect(wrap.style.getPropertyValue('--mdpdf-page-margin-top')).toBe('16mm');
     expect(wrap.style.getPropertyValue('--mdpdf-page-margin-bottom')).toBe('18mm');
-    expect(wrap.style.getPropertyValue('--mdpdf-content-extra-top')).toBe('10mm');
-    expect(wrap.style.getPropertyValue('--mdpdf-content-extra-inline')).toBe('10mm');
+    expect(wrap.style.getPropertyValue('--mdpdf-content-extra-top')).toBe('0mm');
+    expect(wrap.style.getPropertyValue('--mdpdf-content-extra-inline')).toBe('0mm');
     expect(editor.getAttribute('dir')).toBe('rtl');
     expect(overlay.getAttribute('dir')).toBe('rtl');
   });

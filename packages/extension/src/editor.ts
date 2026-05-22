@@ -1098,9 +1098,9 @@ function applyPreviewSettings(root: HTMLElement, canvasWrap: HTMLElement, overla
   const lineHeight = mapLineHeight(options.density);
   const topMargin = options.pageNumbers ? '16mm' : '14mm';
   const bottomMargin = options.pageNumbers ? '18mm' : '14mm';
-  const borderPaddingTop = options.pageBorder ? '10mm' : '0mm';
-  const borderPaddingBottom = options.pageBorder ? '11mm' : '0mm';
-  const borderPaddingSides = options.pageBorder ? '10mm' : '0mm';
+  const borderPaddingTop = '0mm';
+  const borderPaddingBottom = '0mm';
+  const borderPaddingSides = '0mm';
 
   canvasWrap.style.setProperty('--mdpdf-root-font-size', fontSize);
   canvasWrap.style.setProperty('--mdpdf-line-height', lineHeight);
@@ -1787,7 +1787,7 @@ function editorUiCss(): string {
   position: absolute;
   inset: var(--mdpdf-frame-inset);
   border: 1.4px solid #cfd8e6;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 .mdpdf-page-number {
@@ -1824,6 +1824,7 @@ function editorUiCss(): string {
   line-height: var(--mdpdf-line-height);
   font-family: "Vazirmatn", "BNazanin", "BYekan", "Tahoma", sans-serif;
   background: transparent;
+  overflow-x: hidden;
 }
 
 .mdpdf-editor-canvas .mdpdf-tiptap p,
@@ -1834,6 +1835,8 @@ function editorUiCss(): string {
 .mdpdf-editor-canvas .mdpdf-tiptap blockquote {
   margin: 0 0 1em;
   unicode-bidi: plaintext;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mdpdf-editor-canvas .mdpdf-tiptap ul,
@@ -1876,6 +1879,7 @@ function editorUiCss(): string {
 .mdpdf-editor-canvas .mdpdf-tiptap table {
   border-collapse: collapse;
   width: 100%;
+  table-layout: fixed;
 }
 
 .mdpdf-editor-canvas .mdpdf-tiptap td,
@@ -1883,6 +1887,21 @@ function editorUiCss(): string {
   border: 1px solid #d1d5db;
   padding: 8px;
   vertical-align: top;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.mdpdf-editor-canvas .mdpdf-tiptap h1,
+.mdpdf-editor-canvas .mdpdf-tiptap h2,
+.mdpdf-editor-canvas .mdpdf-tiptap h3,
+.mdpdf-editor-canvas .mdpdf-tiptap h4,
+.mdpdf-editor-canvas .mdpdf-tiptap h5,
+.mdpdf-editor-canvas .mdpdf-tiptap h6,
+.mdpdf-editor-canvas .mdpdf-tiptap p,
+.mdpdf-editor-canvas .mdpdf-tiptap li,
+.mdpdf-editor-canvas .mdpdf-tiptap blockquote {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .mdpdf-editor-canvas .mdpdf-tiptap a {
