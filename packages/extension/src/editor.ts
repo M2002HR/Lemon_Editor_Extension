@@ -1,3 +1,4 @@
+import Quill from 'quill';
 import { buildDefaultFilename } from './content/dom.js';
 import { EXTENSION_API_BASE_URL } from './config.js';
 import { buildFontFaceCss, getFontFamilies } from './fonts.js';
@@ -17,21 +18,15 @@ export interface EditorExportResult {
   saveAsDefault: boolean;
 }
 
-const EDITOR_BACKDROP_ID = 'mdpdf-editor-backdrop';
-const BRAND_MARK_URL = chrome.runtime.getURL('branding/lemon-editor-mark-512.png');
-const rtlScript = /[\u0590-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
-
-interface SerializedSelection {
-  startPath: number[];
-  startOffset: number;
-  endPath: number[];
-  endOffset: number;
-}
-
-interface HistorySnapshot {
-  html: string;
-  selection: SerializedSelection | null;
-  sidebar: SidebarSnapshot;
+interface ToolbarState {
+  isBold: boolean;
+  isItalic: boolean;
+  isUnderline: boolean;
+  list: 'ordered' | 'bullet' | null;
+  header: 2 | null;
+  direction: 'rtl' | 'ltr' | null;
+  color: string;
+  background: string;
 }
 
 interface SidebarSnapshot {
@@ -45,14 +40,23 @@ interface SidebarSnapshot {
   codeWrap: boolean;
 }
 
+const EDITOR_BACKDROP_ID = 'mdpdf-editor-backdrop';
+const BRAND_MARK_URL = chrome.runtime.getURL('branding/lemon-editor-mark-512.png');
+const rtlScript = /[\u0590-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+const QUILL_SOURCE_USER = 'user';
+const FONT_SIZES = ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px'];
+
+let quillConfigured = false;
+
 export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportResult | null> {
   closeAdvancedEditor();
+  configureQuillOnce();
 
   const backdrop = document.createElement('div');
   backdrop.id = EDITOR_BACKDROP_ID;
   backdrop.className = 'mdpdf-editor-backdrop';
 
-  const fontOptions = ['System UI', 'Tahoma', 'Vazirmatn', ...getFontFamilies()]
+  const fontOptions = ['Tahoma', 'Vazirmatn', ...getFontFamilies()]
     .map((family) => `<option value="${escapeAttribute(family)}">${escapeHtml(family)}</option>`)
     .join('');
 
@@ -66,8 +70,8 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
         <div class="mdpdf-editor-brand">
           <img src="${BRAND_MARK_URL}" alt="Lemon Editor mark" />
           <div>
-            <h2>Advanced PDF Editor</h2>
-            <p>Live preview updates as you edit and change PDF options.</p>
+            <h2>Lemon Editor (Open Source Core: Quill)</h2>
+            <p>Live preview updates in real time and final download uses same HTML/options.</p>
           </div>
         </div>
         <button type="button" class="mdpdf-editor-close" aria-label="Close">✕</button>
@@ -78,13 +82,13 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
           <div class="mdpdf-editor-toolbar" role="toolbar" aria-label="Text tools">
             <button type="button" data-action="undo" title="Undo">Undo</button>
             <button type="button" data-action="redo" title="Redo">Redo</button>
-            <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
-            <button type="button" data-cmd="italic" title="Italic"><i>I</i></button>
-            <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
-            <button type="button" data-list="ul" title="Bulleted list">• List</button>
-            <button type="button" data-list="ol" title="Numbered list">1. List</button>
-            <button type="button" data-block="p" title="Paragraph">P</button>
-            <button type="button" data-block="h2" title="Heading 2">H2</button>
+            <button type="button" data-format="bold" title="Bold"><b>B</b></button>
+            <button type="button" data-format="italic" title="Italic"><i>I</i></button>
+            <button type="button" data-format="underline" title="Underline"><u>U</u></button>
+            <button type="button" data-list="bullet" title="Bulleted list">• List</button>
+            <button type="button" data-list="ordered" title="Numbered list">1. List</button>
+            <button type="button" data-header="0" title="Paragraph">P</button>
+            <button type="button" data-header="2" title="Heading 2">H2</button>
 
             <select class="mdpdf-editor-select" name="fontFamily" title="Font family">
               <option value="">Font</option>
@@ -93,14 +97,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
 
             <select class="mdpdf-editor-select" name="fontSizePx" title="Selected text size">
               <option value="">Text size</option>
-              <option value="12">12px</option>
-              <option value="14">14px</option>
-              <option value="16">16px</option>
-              <option value="18">18px</option>
-              <option value="20">20px</option>
-              <option value="24">24px</option>
-              <option value="28">28px</option>
-              <option value="32">32px</option>
+              ${FONT_SIZES.map((size) => `<option value="${size}">${size}</option>`).join('')}
             </select>
 
             <label class="mdpdf-color-tool" title="Text color">
@@ -117,12 +114,14 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
 
             <button type="button" data-dir="rtl" title="Current line RTL">RTL Line</button>
             <button type="button" data-dir="ltr" title="Current line LTR">LTR Line</button>
-            <button type="button" data-cmd="removeFormat" title="Remove inline formatting">Clear</button>
+            <button type="button" data-action="clear" title="Remove formatting">Clear</button>
           </div>
 
           <div class="mdpdf-editor-canvas-wrap">
             <div class="mdpdf-page-overlay"></div>
-            <div class="mdpdf-editor-canvas" contenteditable="true" spellcheck="false"></div>
+            <div class="mdpdf-quill-shell">
+              <div class="mdpdf-editor-canvas"></div>
+            </div>
           </div>
         </section>
 
@@ -165,7 +164,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
           <label class="mdpdf-editor-check"><input type="checkbox" name="codeWrap" /> Wrap long code lines</label>
           <label class="mdpdf-editor-check"><input type="checkbox" name="saveAsDefault" /> Save as default settings</label>
 
-          <p class="mdpdf-editor-note">Preview is live and uses the same render options used for final PDF download.</p>
+          <p class="mdpdf-editor-note">Editor uses Quill open-source engine. Live preview is rendered by the same PDF service as download.</p>
 
           <div class="mdpdf-live-preview">
             <div class="mdpdf-live-preview-header">
@@ -188,7 +187,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
 
   document.body.appendChild(backdrop);
 
-  const editor = backdrop.querySelector<HTMLElement>('.mdpdf-editor-canvas');
+  const editorHost = backdrop.querySelector<HTMLElement>('.mdpdf-editor-canvas');
   const canvasWrap = backdrop.querySelector<HTMLElement>('.mdpdf-editor-canvas-wrap');
   const overlay = backdrop.querySelector<HTMLElement>('.mdpdf-page-overlay');
   const filenameInput = backdrop.querySelector<HTMLInputElement>('input[name="filename"]');
@@ -204,7 +203,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
   const livePreviewStatus = backdrop.querySelector<HTMLElement>('.mdpdf-live-preview-status');
 
   if (
-    !editor ||
+    !editorHost ||
     !canvasWrap ||
     !overlay ||
     !filenameInput ||
@@ -223,8 +222,6 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
     return Promise.resolve(null);
   }
 
-  editor.innerHTML = args.html;
-
   directionSelect.value = args.options.direction;
   fontSizeSelect.value = args.options.fontSize;
   densitySelect.value = args.options.density;
@@ -232,6 +229,20 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
   pageBorderInput.checked = args.options.pageBorder;
   pageNumbersInput.checked = args.options.pageNumbers;
   codeWrapInput.checked = args.options.codeWrap;
+
+  const quill = new Quill(editorHost, {
+    modules: {
+      history: {
+        delay: 500,
+        maxStack: 300,
+        userOnly: false
+      },
+      toolbar: false
+    }
+  });
+
+  quill.clipboard.dangerouslyPasteHTML(args.html || '<p><br></p>', QUILL_SOURCE_USER);
+  quill.history.clear();
 
   const readOptionsFromSidebar = () =>
     normalizeExportOptions({
@@ -255,131 +266,13 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
     codeWrap: codeWrapInput.checked
   });
 
-  const applySidebarSnapshot = (sidebar: SidebarSnapshot) => {
-    filenameInput.value = sidebar.filename;
-    directionSelect.value = sidebar.direction;
-    fontSizeSelect.value = sidebar.fontSize;
-    densitySelect.value = sidebar.density;
-    smartPaginationInput.checked = sidebar.smartPagination;
-    pageBorderInput.checked = sidebar.pageBorder;
-    pageNumbersInput.checked = sidebar.pageNumbers;
-    codeWrapInput.checked = sidebar.codeWrap;
-  };
-
-  let savedRange: Range | null = null;
-  const history: {
-    snapshots: HistorySnapshot[];
-    index: number;
-    applying: boolean;
-  } = {
-    snapshots: [],
-    index: -1,
-    applying: false
-  };
+  const sidebarHistory: SidebarSnapshot[] = [readSidebarSnapshot()];
+  let sidebarHistoryIndex = 0;
+  let syncingSidebarHistory = false;
 
   let previewTimer: number | null = null;
   let previewAbort: AbortController | null = null;
   let previewUrl: string | null = null;
-  const storeSelection = () => {
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
-
-    const range = selection.getRangeAt(0);
-    if (editor.contains(range.commonAncestorContainer)) {
-      savedRange = range.cloneRange();
-    }
-  };
-
-  const restoreSelection = () => {
-    if (!savedRange) return;
-    const selection = window.getSelection();
-    if (!selection) return;
-
-    selection.removeAllRanges();
-    selection.addRange(savedRange);
-  };
-
-  const syncLivePreview = () => {
-    const options = readOptionsFromSidebar();
-    applyPreviewSettings(editor, canvasWrap, overlay, options);
-    renderPageOverlay(editor, overlay, options.pageBorder, options.pageNumbers);
-    schedulePdfPreview();
-  };
-
-  const onSelectionChange = () => {
-    if (history.applying) {
-      return;
-    }
-
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
-    const range = selection.getRangeAt(0);
-    if (editor.contains(range.commonAncestorContainer)) {
-      savedRange = range.cloneRange();
-    }
-  };
-
-  const pushHistory = (force = false) => {
-    if (history.applying) {
-      return;
-    }
-
-    const snapshot: HistorySnapshot = {
-      html: editor.innerHTML,
-      selection: serializeSelection(editor),
-      sidebar: readSidebarSnapshot()
-    };
-
-    const current = history.snapshots[history.index];
-    if (!force && current && current.html === snapshot.html && areSidebarSnapshotsEqual(current.sidebar, snapshot.sidebar)) {
-      return;
-    }
-
-    history.snapshots = history.snapshots.slice(0, history.index + 1);
-    history.snapshots.push(snapshot);
-
-    if (history.snapshots.length > 180) {
-      history.snapshots.shift();
-    }
-
-    history.index = history.snapshots.length - 1;
-  };
-
-  const applyHistorySnapshot = (snapshot: HistorySnapshot) => {
-    history.applying = true;
-    applySidebarSnapshot(snapshot.sidebar);
-    editor.innerHTML = snapshot.html;
-    if (snapshot.selection) {
-      restoreSerializedSelection(editor, snapshot.selection);
-    } else {
-      placeCaretAtEnd(editor);
-    }
-    history.applying = false;
-    storeSelection();
-    syncLivePreview();
-  };
-
-  const undoHistory = () => {
-    if (history.index <= 0) {
-      return;
-    }
-    history.index -= 1;
-    const snapshot = history.snapshots[history.index];
-    if (snapshot) {
-      applyHistorySnapshot(snapshot);
-    }
-  };
-
-  const redoHistory = () => {
-    if (history.index >= history.snapshots.length - 1) {
-      return;
-    }
-    history.index += 1;
-    const snapshot = history.snapshots[history.index];
-    if (snapshot) {
-      applyHistorySnapshot(snapshot);
-    }
-  };
 
   const setLivePreviewStatus = (text: string, loading = false) => {
     livePreviewStatus.textContent = text;
@@ -390,24 +283,36 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
     if (previewTimer !== null) {
       window.clearTimeout(previewTimer);
     }
+
     previewTimer = window.setTimeout(() => {
       previewTimer = null;
       void updatePdfPreview();
     }, 550);
   };
 
+  const syncPreviewLayout = () => {
+    const options = readOptionsFromSidebar();
+    applyPreviewSettings(quill.root, canvasWrap, overlay, options);
+    renderPageOverlay(quill.root, overlay, options.pageBorder, options.pageNumbers);
+  };
+
+  const syncLivePreview = () => {
+    syncPreviewLayout();
+    schedulePdfPreview();
+  };
+
   const updatePdfPreview = async () => {
     const options = readOptionsFromSidebar();
     const payload = {
-      html: editor.innerHTML,
+      html: quill.root.innerHTML,
       options
     };
 
     if (previewAbort) {
       previewAbort.abort();
     }
-    previewAbort = new AbortController();
 
+    previewAbort = new AbortController();
     setLivePreviewStatus('Rendering preview...', true);
 
     try {
@@ -429,6 +334,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
+
       previewUrl = url;
       livePreviewFrame.src = url;
       setLivePreviewStatus('Preview up to date');
@@ -436,49 +342,107 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
       if ((error as Error).name === 'AbortError') {
         return;
       }
+
       const message = error instanceof Error ? error.message : 'Preview failed';
       setLivePreviewStatus(message);
     }
   };
 
-  wireToolbar(backdrop, editor, restoreSelection, storeSelection, syncLivePreview, undoHistory, redoHistory, pushHistory);
-
-  document.addEventListener('selectionchange', onSelectionChange);
-  editor.addEventListener('keyup', storeSelection);
-  editor.addEventListener('mouseup', storeSelection);
-  editor.addEventListener('keydown', (event) => {
-    const isMod = event.ctrlKey || event.metaKey;
-    if (!isMod) {
-      return;
-    }
-
-    const key = event.key.toLowerCase();
-    if (key === 'z' && !event.shiftKey) {
-      event.preventDefault();
-      undoHistory();
-      return;
-    }
-
-    if (key === 'y' || (key === 'z' && event.shiftKey)) {
-      event.preventDefault();
-      redoHistory();
-    }
-  });
-  editor.addEventListener('input', () => {
-    pushHistory();
-    syncLivePreview();
-  });
-  window.addEventListener('resize', syncLivePreview);
-
   const onSidebarMutation = () => {
-    if (history.applying) {
-      return;
+    if (!syncingSidebarHistory) {
+      pushSidebarHistory(sidebarHistory, () => sidebarHistoryIndex, (next) => {
+        sidebarHistoryIndex = next;
+      }, readSidebarSnapshot);
     }
 
-    pushHistory();
     syncLivePreview();
   };
 
+  const applySidebarSnapshot = (snapshot: SidebarSnapshot) => {
+    syncingSidebarHistory = true;
+    filenameInput.value = snapshot.filename;
+    directionSelect.value = snapshot.direction;
+    fontSizeSelect.value = snapshot.fontSize;
+    densitySelect.value = snapshot.density;
+    smartPaginationInput.checked = snapshot.smartPagination;
+    pageBorderInput.checked = snapshot.pageBorder;
+    pageNumbersInput.checked = snapshot.pageNumbers;
+    codeWrapInput.checked = snapshot.codeWrap;
+    syncingSidebarHistory = false;
+  };
+
+  const setToolbarState = () => {
+    const format = quill.getFormat();
+
+    const state: ToolbarState = {
+      isBold: format.bold === true,
+      isItalic: format.italic === true,
+      isUnderline: format.underline === true,
+      list: format.list === 'ordered' || format.list === 'bullet' ? format.list : null,
+      header: format.header === 2 ? 2 : null,
+      direction: format.direction === 'rtl' ? 'rtl' : format.direction === 'ltr' ? 'ltr' : null,
+      color: typeof format.color === 'string' ? normalizeHexColor(format.color) : '#0f172a',
+      background: typeof format.background === 'string' ? normalizeHexColor(format.background) : '#fff59d'
+    };
+
+    backdrop.querySelectorAll<HTMLButtonElement>('.mdpdf-editor-toolbar button').forEach((button) => {
+      const active =
+        (button.getAttribute('data-format') === 'bold' && state.isBold) ||
+        (button.getAttribute('data-format') === 'italic' && state.isItalic) ||
+        (button.getAttribute('data-format') === 'underline' && state.isUnderline) ||
+        (button.getAttribute('data-list') === state.list) ||
+        (button.getAttribute('data-header') === '2' && state.header === 2) ||
+        (button.getAttribute('data-header') === '0' && state.header === null) ||
+        (button.getAttribute('data-dir') === state.direction);
+
+      button.classList.toggle('mdpdf-active', active);
+    });
+
+    const textColor = backdrop.querySelector<HTMLInputElement>('input[name="textColor"]');
+    const highlightColor = backdrop.querySelector<HTMLInputElement>('input[name="highlightColor"]');
+    if (textColor) {
+      textColor.value = state.color;
+    }
+    if (highlightColor) {
+      highlightColor.value = state.background;
+    }
+  };
+
+  wireToolbar(backdrop, quill, syncLivePreview, onSidebarMutation, setToolbarState, () => {
+    if (sidebarHistoryIndex <= 0) {
+      quill.history.undo();
+      return;
+    }
+
+    sidebarHistoryIndex -= 1;
+    applySidebarSnapshot(sidebarHistory[sidebarHistoryIndex] as SidebarSnapshot);
+    quill.history.undo();
+    syncLivePreview();
+  }, () => {
+    if (sidebarHistoryIndex >= sidebarHistory.length - 1) {
+      quill.history.redo();
+      return;
+    }
+
+    sidebarHistoryIndex += 1;
+    applySidebarSnapshot(sidebarHistory[sidebarHistoryIndex] as SidebarSnapshot);
+    quill.history.redo();
+    syncLivePreview();
+  });
+
+  const onTextChange = () => {
+    setToolbarState();
+    syncLivePreview();
+  };
+
+  const onSelectionChange = () => {
+    setToolbarState();
+  };
+
+  quill.on('text-change', onTextChange);
+  quill.on('selection-change', onSelectionChange);
+
+  window.addEventListener('resize', syncPreviewLayout);
   directionSelect.addEventListener('change', onSidebarMutation);
   fontSizeSelect.addEventListener('change', onSidebarMutation);
   densitySelect.addEventListener('change', onSidebarMutation);
@@ -488,13 +452,25 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
   codeWrapInput.addEventListener('change', onSidebarMutation);
   filenameInput.addEventListener('input', onSidebarMutation);
 
-  pushHistory(true);
+  quill.focus();
+  setToolbarState();
   syncLivePreview();
 
   return new Promise((resolve) => {
     const cleanup = () => {
-      document.removeEventListener('selectionchange', onSelectionChange);
-      window.removeEventListener('resize', syncLivePreview);
+      window.removeEventListener('resize', syncPreviewLayout);
+      quill.off('text-change', onTextChange);
+      quill.off('selection-change', onSelectionChange);
+
+      directionSelect.removeEventListener('change', onSidebarMutation);
+      fontSizeSelect.removeEventListener('change', onSidebarMutation);
+      densitySelect.removeEventListener('change', onSidebarMutation);
+      smartPaginationInput.removeEventListener('change', onSidebarMutation);
+      pageBorderInput.removeEventListener('change', onSidebarMutation);
+      pageNumbersInput.removeEventListener('change', onSidebarMutation);
+      codeWrapInput.removeEventListener('change', onSidebarMutation);
+      filenameInput.removeEventListener('input', onSidebarMutation);
+
       if (previewTimer !== null) {
         window.clearTimeout(previewTimer);
       }
@@ -520,16 +496,41 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
       }
     });
 
+    backdrop.addEventListener('keydown', (event) => {
+      const isMod = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        cancel();
+        return;
+      }
+
+      if (isMod && key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        quill.history.undo();
+        syncLivePreview();
+        return;
+      }
+
+      if (isMod && (key === 'y' || (key === 'z' && event.shiftKey))) {
+        event.preventDefault();
+        quill.history.redo();
+        syncLivePreview();
+      }
+    });
+
     backdrop.querySelector('.mdpdf-editor-close')?.addEventListener('click', cancel);
     backdrop.querySelector('[data-action="cancel"]')?.addEventListener('click', cancel);
 
     backdrop.querySelector('[data-action="download"]')?.addEventListener('click', () => {
       const filename = normalizeFilename(filenameInput.value, args.filename);
       const options = readOptionsFromSidebar();
+      const html = stripQuillArtifacts(quill.root.innerHTML);
 
       close({
         filename,
-        html: editor.innerHTML,
+        html,
         options,
         saveAsDefault: saveAsDefaultInput.checked
       });
@@ -537,15 +538,32 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
   });
 }
 
+function configureQuillOnce() {
+  if (quillConfigured) {
+    return;
+  }
+
+  const families = ['Tahoma', 'Vazirmatn', ...getFontFamilies()];
+
+  const FontStyle = Quill.import('attributors/style/font') as { whitelist: string[] };
+  FontStyle.whitelist = families;
+  Quill.register('attributors/style/font', FontStyle, true);
+
+  const SizeStyle = Quill.import('attributors/style/size') as { whitelist: string[] };
+  SizeStyle.whitelist = FONT_SIZES;
+  Quill.register('attributors/style/size', SizeStyle, true);
+
+  quillConfigured = true;
+}
+
 function wireToolbar(
   backdrop: HTMLElement,
-  editor: HTMLElement,
-  restoreSelection: () => void,
-  storeSelection: () => void,
+  quill: Quill,
   syncLivePreview: () => void,
-  undoHistory: () => void,
-  redoHistory: () => void,
-  pushHistory: (force?: boolean) => void
+  onSidebarMutation: () => void,
+  setToolbarState: () => void,
+  undoAction: () => void,
+  redoAction: () => void
 ) {
   const toolbar = backdrop.querySelector('.mdpdf-editor-toolbar');
   if (!toolbar) {
@@ -566,234 +584,184 @@ function wireToolbar(
   toolbar.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
     const button = target.closest('button');
-    if (!button) return;
-
-    editor.focus();
-    restoreSelection();
-    ensureSelectionInEditor(editor);
+    if (!button) {
+      return;
+    }
 
     const action = button.getAttribute('data-action');
     if (action === 'undo') {
-      undoHistory();
+      undoAction();
+      setToolbarState();
       return;
     }
 
     if (action === 'redo') {
-      redoHistory();
+      redoAction();
+      setToolbarState();
+      return;
+    }
+
+    const format = button.getAttribute('data-format');
+    if (format === 'bold' || format === 'italic' || format === 'underline') {
+      toggleInlineFormat(quill, format);
+      setToolbarState();
+      syncLivePreview();
       return;
     }
 
     const list = button.getAttribute('data-list');
-    if (list === 'ul' || list === 'ol') {
-      toggleList(editor, list);
-      storeSelection();
-      pushHistory();
+    if (list === 'ordered' || list === 'bullet') {
+      toggleListFormat(quill, list);
+      setToolbarState();
       syncLivePreview();
       return;
     }
 
-    const command = button.getAttribute('data-cmd');
-    if (command) {
-      document.execCommand(command, false);
-      storeSelection();
-      pushHistory();
-      syncLivePreview();
-      return;
-    }
-
-    const block = button.getAttribute('data-block');
-    if (block) {
-      document.execCommand('formatBlock', false, block.toUpperCase());
-      storeSelection();
-      pushHistory();
+    const headerValue = button.getAttribute('data-header');
+    if (headerValue === '0' || headerValue === '2') {
+      setHeaderFormat(quill, Number(headerValue));
+      setToolbarState();
       syncLivePreview();
       return;
     }
 
     const dir = button.getAttribute('data-dir');
     if (dir === 'rtl' || dir === 'ltr') {
-      setCurrentBlockDirection(editor, dir);
-      storeSelection();
-      pushHistory();
+      setDirectionForLine(quill, dir);
+      setToolbarState();
       syncLivePreview();
       return;
     }
 
     if (action === 'applyTextColor' && textColorInput) {
-      applyColorCommand('foreColor', textColorInput.value);
-      storeSelection();
-      pushHistory();
+      quill.focus();
+      quill.format('color', textColorInput.value, QUILL_SOURCE_USER);
       syncLivePreview();
       return;
     }
 
     if (action === 'applyHighlight' && highlightColorInput) {
-      applyColorCommand('hiliteColor', highlightColorInput.value);
-      storeSelection();
-      pushHistory();
+      quill.focus();
+      quill.format('background', highlightColorInput.value, QUILL_SOURCE_USER);
+      syncLivePreview();
+      return;
+    }
+
+    if (action === 'clear') {
+      clearFormatting(quill);
+      setToolbarState();
       syncLivePreview();
     }
   });
 
   if (fontSelect) {
     fontSelect.addEventListener('change', () => {
-      const family = fontSelect.value;
-      if (!family) return;
+      if (!fontSelect.value) {
+        return;
+      }
 
-      editor.focus();
-      restoreSelection();
-      ensureSelectionInEditor(editor);
-      applyInlineStyleToSelection('fontFamily', `"${family}"`);
+      quill.focus();
+      quill.format('font', fontSelect.value, QUILL_SOURCE_USER);
       fontSelect.value = '';
-      storeSelection();
-      pushHistory();
+      setToolbarState();
       syncLivePreview();
     });
   }
 
   if (fontSizePxSelect) {
     fontSizePxSelect.addEventListener('change', () => {
-      const px = Number(fontSizePxSelect.value);
-      if (!Number.isFinite(px) || px < 8) return;
+      if (!fontSizePxSelect.value) {
+        return;
+      }
 
-      editor.focus();
-      restoreSelection();
-      ensureSelectionInEditor(editor);
-      applyInlineStyleToSelection('fontSize', `${px}px`);
+      quill.focus();
+      quill.format('size', fontSizePxSelect.value, QUILL_SOURCE_USER);
       fontSizePxSelect.value = '';
-      storeSelection();
-      pushHistory();
+      setToolbarState();
       syncLivePreview();
     });
   }
+
+  backdrop.querySelectorAll<HTMLInputElement | HTMLSelectElement>('.mdpdf-editor-right input, .mdpdf-editor-right select').forEach((item) => {
+    item.addEventListener('change', onSidebarMutation);
+  });
 }
 
-function applyColorCommand(command: 'foreColor' | 'hiliteColor', color: string): boolean {
-  const value = color.trim();
-  if (!value) {
-    return false;
-  }
-
-  try {
-    document.execCommand('styleWithCSS', false, 'true');
-  } catch {
-    // no-op
-  }
-
-  if (document.execCommand(command, false, value)) {
-    return true;
-  }
-
-  if (command === 'hiliteColor' && document.execCommand('backColor', false, value)) {
-    return true;
-  }
-
-  if (command === 'foreColor') {
-    applyInlineStyleToSelection('color', value);
-  } else {
-    applyInlineStyleToSelection('backgroundColor', value);
-  }
-
-  return true;
+function toggleInlineFormat(quill: Quill, format: 'bold' | 'italic' | 'underline') {
+  const current = quill.getFormat();
+  const enabled = current[format] === true;
+  quill.focus();
+  quill.format(format, !enabled, QUILL_SOURCE_USER);
 }
 
-function toggleList(editor: HTMLElement, listType: 'ul' | 'ol') {
-  const command = listType === 'ul' ? 'insertUnorderedList' : 'insertOrderedList';
-  const ok = document.execCommand(command, false);
-  if (ok) {
+function toggleListFormat(quill: Quill, value: 'ordered' | 'bullet') {
+  const format = quill.getFormat();
+  const next = format.list === value ? false : value;
+  quill.focus();
+  quill.format('list', next, QUILL_SOURCE_USER);
+}
+
+function setHeaderFormat(quill: Quill, value: number) {
+  const format = quill.getFormat();
+  const isActive = format.header === value;
+  quill.focus();
+  quill.format('header', isActive || value === 0 ? false : value, QUILL_SOURCE_USER);
+}
+
+function clearFormatting(quill: Quill) {
+  const range = quill.getSelection(true);
+  if (!range) {
     return;
   }
 
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) {
+  if (range.length > 0) {
+    quill.removeFormat(range.index, range.length, QUILL_SOURCE_USER);
     return;
   }
 
-  const range = selection.getRangeAt(0);
-  const startNode = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : (range.startContainer as HTMLElement);
-  const block = (startNode?.closest('p,div,li') as HTMLElement | null) ?? editor;
-
-  const listEl = document.createElement(listType);
-  const li = document.createElement('li');
-  li.innerHTML = block.innerHTML.trim() || '&nbsp;';
-  listEl.appendChild(li);
-
-  if (block !== editor) {
-    block.replaceWith(listEl);
-  } else {
-    editor.appendChild(listEl);
-  }
-
-  const newRange = document.createRange();
-  newRange.selectNodeContents(li);
-  newRange.collapse(false);
-  selection.removeAllRanges();
-  selection.addRange(newRange);
+  quill.format('bold', false, QUILL_SOURCE_USER);
+  quill.format('italic', false, QUILL_SOURCE_USER);
+  quill.format('underline', false, QUILL_SOURCE_USER);
+  quill.format('color', false, QUILL_SOURCE_USER);
+  quill.format('background', false, QUILL_SOURCE_USER);
+  quill.format('size', false, QUILL_SOURCE_USER);
+  quill.format('font', false, QUILL_SOURCE_USER);
 }
 
-function applyInlineStyleToSelection(styleProp: keyof CSSStyleDeclaration, value: string) {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) {
+function setDirectionForLine(quill: Quill, dir: 'rtl' | 'ltr') {
+  const range = quill.getSelection(true);
+  if (!range) {
     return;
   }
 
-  const range = selection.getRangeAt(0);
-  const span = document.createElement('span');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (span.style as any)[styleProp] = value;
-
-  if (range.collapsed) {
-    span.appendChild(document.createTextNode('\u200b'));
-    range.insertNode(span);
-    const nextRange = document.createRange();
-    nextRange.setStart(span.firstChild ?? span, 1);
-    nextRange.collapse(true);
-    selection.removeAllRanges();
-    selection.addRange(nextRange);
-    return;
-  }
-
-  const extracted = range.extractContents();
-  span.appendChild(extracted);
-  range.insertNode(span);
-
-  const nextRange = document.createRange();
-  nextRange.selectNodeContents(span);
-  nextRange.collapse(false);
-  selection.removeAllRanges();
-  selection.addRange(nextRange);
+  const length = Math.max(range.length, 1);
+  quill.formatLine(range.index, length, 'direction', dir === 'rtl' ? 'rtl' : false, QUILL_SOURCE_USER);
+  quill.formatLine(range.index, length, 'align', dir === 'rtl' ? 'right' : false, QUILL_SOURCE_USER);
 }
 
-function setCurrentBlockDirection(editor: HTMLElement, dir: 'rtl' | 'ltr') {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) {
+function pushSidebarHistory(
+  history: SidebarSnapshot[],
+  getIndex: () => number,
+  setIndex: (next: number) => void,
+  readSnapshot: () => SidebarSnapshot
+) {
+  const snapshot = readSnapshot();
+  const current = history[getIndex()];
+  if (current && areSidebarSnapshotsEqual(current, snapshot)) {
     return;
   }
 
-  const range = selection.getRangeAt(0);
-  const startNode = range.startContainer.nodeType === Node.TEXT_NODE ? range.startContainer.parentElement : (range.startContainer as HTMLElement);
-  const block = (startNode?.closest('p,div,li,h1,h2,h3,h4,h5,h6,blockquote,pre') as HTMLElement | null) ?? editor;
-
-  block.setAttribute('dir', dir);
-  block.style.direction = dir;
-  block.style.textAlign = dir === 'rtl' ? 'right' : 'left';
-}
-
-function ensureSelectionInEditor(editor: HTMLElement) {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) {
-    placeCaretAtEnd(editor);
-    return;
+  history.splice(getIndex() + 1);
+  history.push(snapshot);
+  if (history.length > 120) {
+    history.shift();
   }
 
-  const range = selection.getRangeAt(0);
-  if (!editor.contains(range.commonAncestorContainer)) {
-    placeCaretAtEnd(editor);
-  }
+  setIndex(history.length - 1);
 }
 
-function applyPreviewSettings(editor: HTMLElement, canvasWrap: HTMLElement, overlay: HTMLElement, options: PdfRenderOptions) {
-  const resolvedDir = options.direction === 'auto' ? (rtlScript.test(editor.innerText) ? 'rtl' : 'ltr') : options.direction;
+function applyPreviewSettings(root: HTMLElement, canvasWrap: HTMLElement, overlay: HTMLElement, options: PdfRenderOptions) {
+  const resolvedDir = options.direction === 'auto' ? (rtlScript.test(root.innerText) ? 'rtl' : 'ltr') : options.direction;
   const fontSize = mapRootFontSize(options.fontSize);
   const lineHeight = mapLineHeight(options.density);
   const topMargin = options.pageNumbers ? '16mm' : '14mm';
@@ -809,19 +777,17 @@ function applyPreviewSettings(editor: HTMLElement, canvasWrap: HTMLElement, over
   canvasWrap.style.setProperty('--mdpdf-content-extra-top', borderPaddingTop);
   canvasWrap.style.setProperty('--mdpdf-content-extra-bottom', borderPaddingBottom);
   canvasWrap.style.setProperty('--mdpdf-content-extra-inline', borderPaddingSides);
-  editor.setAttribute('dir', resolvedDir);
-  editor.style.direction = resolvedDir;
 
-  canvasWrap.classList.toggle('mdpdf-show-page-border', options.pageBorder);
-  canvasWrap.classList.toggle('mdpdf-show-page-numbers', options.pageNumbers);
+  root.setAttribute('dir', resolvedDir);
+  root.style.direction = resolvedDir;
+
   canvasWrap.classList.toggle('mdpdf-code-wrap', options.codeWrap);
-
   overlay.setAttribute('dir', resolvedDir);
 }
 
-function renderPageOverlay(editor: HTMLElement, overlay: HTMLElement, showBorder: boolean, showPageNumbers: boolean) {
+function renderPageOverlay(root: HTMLElement, overlay: HTMLElement, showBorder: boolean, showPageNumbers: boolean) {
   const pageHeight = 1122.52;
-  const totalHeight = Math.max(editor.scrollHeight + 80, pageHeight);
+  const totalHeight = Math.max(root.scrollHeight + 80, pageHeight);
   const pageCount = Math.max(1, Math.ceil(totalHeight / pageHeight));
 
   overlay.innerHTML = '';
@@ -898,81 +864,39 @@ function areSidebarSnapshotsEqual(current: SidebarSnapshot, next: SidebarSnapsho
   );
 }
 
-function serializeSelection(root: HTMLElement): SerializedSelection | null {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) {
-    return null;
-  }
+function stripQuillArtifacts(html: string): string {
+  const cleaned = html
+    .replace(/ class="ql-align-(right|center|justify)"/g, '')
+    .replace(/ class="ql-direction-rtl"/g, '')
+    .replace(/<p><br><\/p>/g, '<p></p>');
 
-  const range = selection.getRangeAt(0);
-  if (!root.contains(range.commonAncestorContainer)) {
-    return null;
-  }
-
-  return {
-    startPath: getNodePath(root, range.startContainer),
-    startOffset: range.startOffset,
-    endPath: getNodePath(root, range.endContainer),
-    endOffset: range.endOffset
-  };
+  return cleaned.trim();
 }
 
-function restoreSerializedSelection(root: HTMLElement, serialized: SerializedSelection) {
-  const startNode = resolveNodePath(root, serialized.startPath);
-  const endNode = resolveNodePath(root, serialized.endPath);
-  if (!startNode || !endNode) {
-    placeCaretAtEnd(root);
-    return;
+function normalizeHexColor(color: string): string {
+  if (!color) {
+    return '#0f172a';
   }
 
-  const range = document.createRange();
-  range.setStart(startNode, clampOffset(startNode, serialized.startOffset));
-  range.setEnd(endNode, clampOffset(endNode, serialized.endOffset));
-
-  const selection = window.getSelection();
-  if (!selection) return;
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
-
-function getNodePath(root: Node, target: Node): number[] {
-  const path: number[] = [];
-  let node: Node | null = target;
-  while (node && node !== root) {
-    const parentNode: Node | null = node.parentNode;
-    if (!parentNode) {
-      break;
-    }
-    path.unshift(Array.prototype.indexOf.call(parentNode.childNodes, node));
-    node = parentNode;
+  if (/^#[0-9a-f]{6}$/i.test(color)) {
+    return color.toLowerCase();
   }
-  return path;
-}
 
-function resolveNodePath(root: Node, path: number[]): Node | null {
-  let node: Node = root;
-  for (const index of path) {
-    if (!node.childNodes[index]) {
-      return null;
-    }
-    node = node.childNodes[index];
+  const temp = document.createElement('span');
+  temp.style.color = color;
+  document.body.appendChild(temp);
+  const value = getComputedStyle(temp).color;
+  temp.remove();
+
+  const match = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (!match) {
+    return '#0f172a';
   }
-  return node;
-}
 
-function clampOffset(node: Node, offset: number): number {
-  const max = node.nodeType === Node.TEXT_NODE ? (node.textContent?.length ?? 0) : node.childNodes.length;
-  return Math.max(0, Math.min(max, offset));
-}
-
-function placeCaretAtEnd(root: HTMLElement) {
-  const range = document.createRange();
-  range.selectNodeContents(root);
-  range.collapse(false);
-  const selection = window.getSelection();
-  if (!selection) return;
-  selection.removeAllRanges();
-  selection.addRange(range);
+  const r = Number(match[1]).toString(16).padStart(2, '0');
+  const g = Number(match[2]).toString(16).padStart(2, '0');
+  const b = Number(match[3]).toString(16).padStart(2, '0');
+  return `#${r}${g}${b}`;
 }
 
 async function safeTextFromResponse(response: Response): Promise<string> {
@@ -1128,6 +1052,11 @@ function editorUiCss(): string {
   cursor: pointer;
 }
 
+.mdpdf-editor-toolbar button.mdpdf-active {
+  border-color: #3b82f6;
+  background: #eaf2ff;
+}
+
 .mdpdf-editor-select {
   min-width: 126px;
 }
@@ -1185,7 +1114,7 @@ function editorUiCss(): string {
   left: 0;
   width: 100%;
   height: var(--mdpdf-page-height);
-  background: #ffffff;
+  background: #fff;
   border-radius: 8px;
   box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07);
 }
@@ -1195,7 +1124,6 @@ function editorUiCss(): string {
   inset: var(--mdpdf-frame-inset);
   border: 1.4px solid #cfd8e6;
   border-radius: 8px;
-  pointer-events: none;
 }
 
 .mdpdf-page-number {
@@ -1211,33 +1139,51 @@ function editorUiCss(): string {
   left: 14mm;
 }
 
-.mdpdf-editor-canvas {
+.mdpdf-quill-shell {
   position: relative;
   z-index: 2;
   width: var(--mdpdf-page-width);
   min-height: var(--mdpdf-page-height);
   margin: 0 auto;
+  background: transparent;
+}
+
+.mdpdf-quill-shell .ql-container {
+  border: none;
+  font-family: "Vazirmatn", "BNazanin", "BYekan", "Tahoma", sans-serif;
+  font-size: var(--mdpdf-root-font-size);
+  line-height: var(--mdpdf-line-height);
+}
+
+.mdpdf-quill-shell .ql-editor {
+  min-height: var(--mdpdf-page-height);
   padding: calc(var(--mdpdf-page-margin-top) + var(--mdpdf-content-extra-top))
     calc(var(--mdpdf-page-margin-inline) + var(--mdpdf-content-extra-inline))
     calc(var(--mdpdf-page-margin-bottom) + var(--mdpdf-content-extra-bottom));
-  background: transparent;
-  line-height: var(--mdpdf-line-height);
-  font-size: var(--mdpdf-root-font-size);
-  font-family: "Vazirmatn", "BNazanin", "BYekan", "Tahoma", sans-serif;
-  outline: none;
   color: #0f172a;
+  white-space: normal;
 }
 
-.mdpdf-editor-canvas > :first-child {
-  margin-top: 0 !important;
+.mdpdf-editor-canvas,
+.mdpdf-quill-shell .ql-editor {
+  outline: none;
 }
 
-.mdpdf-editor-canvas pre {
+.mdpdf-quill-shell .ql-editor p,
+.mdpdf-quill-shell .ql-editor ul,
+.mdpdf-quill-shell .ql-editor ol,
+.mdpdf-quill-shell .ql-editor pre,
+.mdpdf-quill-shell .ql-editor table,
+.mdpdf-quill-shell .ql-editor blockquote {
+  margin: 0 0 1em;
+}
+
+.mdpdf-quill-shell .ql-editor pre {
   white-space: pre;
   overflow: auto;
 }
 
-.mdpdf-editor-canvas-wrap.mdpdf-code-wrap .mdpdf-editor-canvas pre {
+.mdpdf-editor-canvas-wrap.mdpdf-code-wrap .ql-editor pre {
   white-space: pre-wrap;
   word-break: break-word;
   overflow: visible;
@@ -1345,7 +1291,7 @@ function editorUiCss(): string {
 }
 
 .mdpdf-primary {
-  color: white;
+  color: #fff;
   border-color: transparent;
   background: linear-gradient(135deg, #1d4ed8, #0f766e);
 }
