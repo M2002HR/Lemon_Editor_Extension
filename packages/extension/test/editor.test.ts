@@ -86,7 +86,7 @@ describe('editor utilities', () => {
     expect(Math.round(metrics.safeHeight)).toBe(914);
   });
 
-  it('pushes blocks to next page when they would fall outside page border area', () => {
+  it('pushes non-paragraph blocks to next page when they would fall outside page border area', () => {
     const wrap = document.createElement('div');
     wrap.style.setProperty('--mdpdf-page-height', '1122.52px');
     wrap.style.setProperty('--mdpdf-page-margin-top', '16mm');
@@ -95,7 +95,7 @@ describe('editor utilities', () => {
     wrap.style.setProperty('--mdpdf-content-extra-bottom', '10mm');
 
     const root = document.createElement('div');
-    const block = document.createElement('p');
+    const block = document.createElement('h2');
     root.appendChild(block);
 
     Object.defineProperty(block, 'offsetTop', { value: 1080, configurable: true });
@@ -105,6 +105,27 @@ describe('editor utilities', () => {
 
     expect(block.getAttribute('data-mdpdf-preview-shift')).toBe('143');
     expect(block.style.marginTop).toBe('143px');
+  });
+
+  it('does not force-shift paragraphs to avoid massive blank gaps between pages', () => {
+    const wrap = document.createElement('div');
+    wrap.style.setProperty('--mdpdf-page-height', '1122.52px');
+    wrap.style.setProperty('--mdpdf-page-margin-top', '16mm');
+    wrap.style.setProperty('--mdpdf-page-margin-bottom', '18mm');
+    wrap.style.setProperty('--mdpdf-content-extra-top', '10mm');
+    wrap.style.setProperty('--mdpdf-content-extra-bottom', '10mm');
+
+    const root = document.createElement('div');
+    const paragraph = document.createElement('p');
+    root.appendChild(paragraph);
+
+    Object.defineProperty(paragraph, 'offsetTop', { value: 1080, configurable: true });
+    Object.defineProperty(paragraph, 'offsetHeight', { value: 40, configurable: true });
+
+    __editorTestUtils.stabilizePreviewPagination(root, wrap);
+
+    expect(paragraph.getAttribute('data-mdpdf-preview-shift')).toBeNull();
+    expect(paragraph.style.marginTop).toBe('');
   });
 
   it('compares sidebar snapshots deterministically', () => {

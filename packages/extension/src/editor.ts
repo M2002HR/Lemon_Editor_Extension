@@ -1217,6 +1217,10 @@ function stabilizePreviewPagination(root: HTMLElement, canvasWrap: HTMLElement) 
   }
 
   for (const block of blocks) {
+    if (!shouldShiftBlockForPreview(block)) {
+      continue;
+    }
+
     const blockHeight = Math.max(block.offsetHeight, 1);
     const top = block.offsetTop;
     const pageIndex = Math.floor(top / metrics.pageHeight);
@@ -1238,6 +1242,18 @@ function stabilizePreviewPagination(root: HTMLElement, canvasWrap: HTMLElement) 
       setPreviewBlockShift(block, shift);
     }
   }
+}
+
+function shouldShiftBlockForPreview(block: HTMLElement): boolean {
+  const tag = block.tagName.toUpperCase();
+
+  // Let flowing text split naturally across pages to avoid giant white gaps.
+  // We only shift blocks that should stay together visually.
+  if (tag === 'P' || tag === 'LI' || tag === 'TD' || tag === 'TH') {
+    return false;
+  }
+
+  return true;
 }
 
 function createPreviewPaginationMetrics(canvasWrap: HTMLElement): PreviewPaginationMetrics {
