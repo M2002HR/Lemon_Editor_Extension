@@ -70,6 +70,43 @@ describe('editor utilities', () => {
     expect(overlay.querySelectorAll('.mdpdf-page-number').length).toBe(0);
   });
 
+  it('computes preview pagination metrics from configured css variables', () => {
+    const wrap = document.createElement('div');
+    wrap.style.setProperty('--mdpdf-page-height', '297mm');
+    wrap.style.setProperty('--mdpdf-page-margin-top', '16mm');
+    wrap.style.setProperty('--mdpdf-page-margin-bottom', '18mm');
+    wrap.style.setProperty('--mdpdf-content-extra-top', '10mm');
+    wrap.style.setProperty('--mdpdf-content-extra-bottom', '11mm');
+
+    const metrics = __editorTestUtils.createPreviewPaginationMetrics(wrap);
+
+    expect(Math.round(metrics.pageHeight)).toBe(1123);
+    expect(Math.round(metrics.safeTopOffset)).toBe(98);
+    expect(Math.round(metrics.safeBottomOffset)).toBe(1013);
+    expect(Math.round(metrics.safeHeight)).toBe(915);
+  });
+
+  it('pushes blocks to next page when they would fall outside page border area', () => {
+    const wrap = document.createElement('div');
+    wrap.style.setProperty('--mdpdf-page-height', '1122.52px');
+    wrap.style.setProperty('--mdpdf-page-margin-top', '16mm');
+    wrap.style.setProperty('--mdpdf-page-margin-bottom', '18mm');
+    wrap.style.setProperty('--mdpdf-content-extra-top', '10mm');
+    wrap.style.setProperty('--mdpdf-content-extra-bottom', '11mm');
+
+    const root = document.createElement('div');
+    const block = document.createElement('p');
+    root.appendChild(block);
+
+    Object.defineProperty(block, 'offsetTop', { value: 1080, configurable: true });
+    Object.defineProperty(block, 'offsetHeight', { value: 40, configurable: true });
+
+    __editorTestUtils.stabilizePreviewPagination(root, wrap);
+
+    expect(block.getAttribute('data-mdpdf-preview-shift')).toBe('141');
+    expect(block.style.marginTop).toBe('141px');
+  });
+
   it('compares sidebar snapshots deterministically', () => {
     const base = {
       filename: 'a.pdf',

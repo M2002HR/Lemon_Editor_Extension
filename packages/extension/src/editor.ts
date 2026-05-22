@@ -46,12 +46,24 @@ interface SidebarSnapshot {
   codeWrap: boolean;
 }
 
+interface PreviewPaginationMetrics {
+  pageHeight: number;
+  safeTopOffset: number;
+  safeBottomOffset: number;
+  safeHeight: number;
+}
+
 const EDITOR_BACKDROP_ID = 'mdpdf-editor-backdrop';
 const BRAND_MARK_URL = chrome.runtime.getURL('branding/lemon-editor-mark-512.png');
 const FLATICON_UI_CSS_URL = chrome.runtime.getURL('uicons/regular/rounded.css');
 const FLATICON_UI_LINK_ID = 'mdpdf-flaticon-uicons-css';
 const rtlScript = /[\u0590-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 const FONT_SIZE_OPTIONS = ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px'];
+const MM_TO_PX = 96 / 25.4;
+const PREVIEW_PAGE_HEIGHT = 1122.52;
+const PREVIEW_MIN_SAFE_BLOCK_HEIGHT = 96;
+const PREVIEW_SHIFT_ATTR = 'data-mdpdf-preview-shift';
+const PREVIEW_BASE_MARGIN_TOP_ATTR = 'data-mdpdf-preview-base-margin-top';
 
 export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportResult | null> {
   closeAdvancedEditor();
@@ -415,6 +427,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
     const options = readOptionsFromSidebar();
     const root = getEditorRoot();
     applyPreviewSettings(root, canvasWrap, overlay, options);
+    stabilizePreviewPagination(root, canvasWrap);
     renderPageOverlay(root, overlay, options.pageBorder, options.pageNumbers);
   };
 
@@ -1066,7 +1079,7 @@ function applyPreviewSettings(root: HTMLElement, canvasWrap: HTMLElement, overla
 }
 
 function renderPageOverlay(root: HTMLElement, overlay: HTMLElement, showBorder: boolean, showPageNumbers: boolean) {
-  const pageHeight = 1122.52;
+  const pageHeight = PREVIEW_PAGE_HEIGHT;
   const totalHeight = Math.max(root.scrollHeight + 80, pageHeight);
   const pageCount = Math.max(1, Math.ceil(totalHeight / pageHeight));
 
@@ -1093,6 +1106,110 @@ function renderPageOverlay(root: HTMLElement, overlay: HTMLElement, showBorder: 
 
     overlay.appendChild(page);
   }
+}
+
+function stabilizePreviewPagination(root: HTMLElement, canvasWrap: HTMLElement) {
+  const metrics = createPreviewPaginationMetrics(canvasWrap);
+  const blocks = Array.from(root.children).filter((node): node is HTMLElement => node instanceof HTMLElement);
+
+  if (blocks.length === 0) {
+    return;
+  }
+
+  for (const block of blocks) {
+    setPreviewBlockShift(block, 0);
+  }
+
+  for (const block of blocks) {
+    const blockHeight = Math.max(block.offsetHeight, 1);
+    const top = block.offsetTop;
+    const pageIndex = Math.floor(top / metrics.pageHeight);
+    const pageTop = pageIndex * metrics.pageHeight;
+    const safeTop = pageTop + metrics.safeTopOffset;
+    const safeBottom = pageTop + metrics.safeBottomOffset;
+
+    let shift = 0;
+    if (top < safeTop) {
+      shift = safeTop - top;
+    }
+
+    if (blockHeight <= metrics.safeHeight && top + shift + blockHeight > safeBottom) {
+      const nextPageSafeTop = (pageIndex + 1) * metrics.pageHeight + metrics.safeTopOffset;
+      shift = Math.max(shift, nextPageSafeTop - top);
+    }
+
+    if (shift > 0) {
+      setPreviewBlockShift(block, shift);
+    }
+  }
+}
+
+function createPreviewPaginationMetrics(canvasWrap: HTMLElement): PreviewPaginationMetrics {
+  const style = getComputedStyle(canvasWrap);
+  const pageHeight = cssLengthToPx(style.getPropertyValue('--mdpdf-page-height'), PREVIEW_PAGE_HEIGHT);
+  const topMargin = cssLengthToPx(style.getPropertyValue('--mdpdf-page-margin-top'), mmToPx(14));
+  const bottomMargin = cssLengthToPx(style.getPropertyValue('--mdpdf-page-margin-bottom'), mmToPx(14));
+  const extraTop = cssLengthToPx(style.getPropertyValue('--mdpdf-content-extra-top'), 0);
+  const extraBottom = cssLengthToPx(style.getPropertyValue('--mdpdf-content-extra-bottom'), 0);
+
+  const safeTopOffset = topMargin + extraTop;
+  const safeBottomOffset = Math.max(safeTopOffset + PREVIEW_MIN_SAFE_BLOCK_HEIGHT, pageHeight - (bottomMargin + extraBottom));
+  const safeHeight = Math.max(PREVIEW_MIN_SAFE_BLOCK_HEIGHT, safeBottomOffset - safeTopOffset);
+
+  return {
+    pageHeight,
+    safeTopOffset,
+    safeBottomOffset,
+    safeHeight
+  };
+}
+
+function setPreviewBlockShift(block: HTMLElement, shift: number) {
+  const baseMarginTop = block.getAttribute(PREVIEW_BASE_MARGIN_TOP_ATTR) ?? block.style.marginTop ?? '';
+  if (!block.hasAttribute(PREVIEW_BASE_MARGIN_TOP_ATTR)) {
+    block.setAttribute(PREVIEW_BASE_MARGIN_TOP_ATTR, baseMarginTop);
+  }
+
+  if (shift <= 0) {
+    block.removeAttribute(PREVIEW_SHIFT_ATTR);
+    if (baseMarginTop) {
+      block.style.marginTop = baseMarginTop;
+    } else {
+      block.style.removeProperty('margin-top');
+    }
+    return;
+  }
+
+  const roundedShift = Math.ceil(shift);
+  block.setAttribute(PREVIEW_SHIFT_ATTR, String(roundedShift));
+  if (baseMarginTop) {
+    block.style.marginTop = `calc(${baseMarginTop} + ${roundedShift}px)`;
+  } else {
+    block.style.marginTop = `${roundedShift}px`;
+  }
+}
+
+function cssLengthToPx(rawValue: string, fallbackPx: number): number {
+  const value = rawValue.trim();
+  if (!value) {
+    return fallbackPx;
+  }
+
+  const pxMatch = value.match(/^(-?\d+(?:\.\d+)?)px$/i);
+  if (pxMatch) {
+    return Number(pxMatch[1]);
+  }
+
+  const mmMatch = value.match(/^(-?\d+(?:\.\d+)?)mm$/i);
+  if (mmMatch) {
+    return mmToPx(Number(mmMatch[1]));
+  }
+
+  return fallbackPx;
+}
+
+function mmToPx(value: number): number {
+  return value * MM_TO_PX;
 }
 
 function mapRootFontSize(size: PdfRenderOptions['fontSize']): string {
@@ -1169,6 +1286,8 @@ function normalizeHexColor(color: string): string {
 export const __editorTestUtils = {
   applyPreviewSettings,
   renderPageOverlay,
+  createPreviewPaginationMetrics,
+  stabilizePreviewPagination,
   normalizeDirectionValue,
   normalizeFontSizeValue,
   normalizeDensityValue,
