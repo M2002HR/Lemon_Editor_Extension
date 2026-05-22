@@ -1,14 +1,29 @@
 {
   "manifest_version": 3,
   "name": "ChatGPT Markdown to PDF",
-  "version": "0.1.0",
-  "description": "Add a PDF button next to ChatGPT answers and download rendered PDFs from a local Markdown->PDF service.",
+  "version": "0.3.0",
+  "description": "Add a PDF button next to ChatGPT answers with advanced export settings and high-quality PDF output.",
   "permissions": ["downloads", "storage"],
   "host_permissions": [
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
     "http://localhost:4000/*"
   ],
+  "web_accessible_resources": [
+    {
+      "resources": ["fonts/*", "branding/*", "ui-icons/*"],
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
   "background": {
     "service_worker": "background.js"
   },
@@ -23,6 +38,11 @@
     }
   ],
   "action": {
-    "default_title": "ChatGPT Markdown to PDF"
+    "default_title": "ChatGPT Markdown to PDF",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
   }
 }

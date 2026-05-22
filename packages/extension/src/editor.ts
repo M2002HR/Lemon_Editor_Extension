@@ -55,8 +55,6 @@ interface PreviewPaginationMetrics {
 
 const EDITOR_BACKDROP_ID = 'mdpdf-editor-backdrop';
 const BRAND_MARK_URL = chrome.runtime.getURL('branding/lemon-editor-mark-512.png');
-const FLATICON_UI_CSS_URL = chrome.runtime.getURL('uicons/regular/rounded.css');
-const FLATICON_UI_LINK_ID = 'mdpdf-flaticon-uicons-css';
 const rtlScript = /[\u0590-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 const FONT_SIZE_OPTIONS = ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px'];
 const MM_TO_PX = 96 / 25.4;
@@ -64,10 +62,54 @@ const PREVIEW_PAGE_HEIGHT = 1122.52;
 const PREVIEW_MIN_SAFE_BLOCK_HEIGHT = 96;
 const PREVIEW_SHIFT_ATTR = 'data-mdpdf-preview-shift';
 const PREVIEW_BASE_MARGIN_TOP_ATTR = 'data-mdpdf-preview-base-margin-top';
+const UI_ICON_URLS: Record<string, string> = {
+  'fi-rr-add': chrome.runtime.getURL('ui-icons/plus-lg.svg'),
+  'fi-rr-align-center': chrome.runtime.getURL('ui-icons/text-center.svg'),
+  'fi-rr-align-justify': chrome.runtime.getURL('ui-icons/justify.svg'),
+  'fi-rr-align-left': chrome.runtime.getURL('ui-icons/text-left.svg'),
+  'fi-rr-bold': chrome.runtime.getURL('ui-icons/type-bold.svg'),
+  'fi-rr-book-font': chrome.runtime.getURL('ui-icons/fonts.svg'),
+  'fi-rr-border-all': chrome.runtime.getURL('ui-icons/border-all.svg'),
+  'fi-rr-calendar-check': chrome.runtime.getURL('ui-icons/calendar-check.svg'),
+  'fi-rr-checklist-task-budget': chrome.runtime.getURL('ui-icons/list-task.svg'),
+  'fi-rr-code-branch': chrome.runtime.getURL('ui-icons/git.svg'),
+  'fi-rr-code-simple': chrome.runtime.getURL('ui-icons/code-slash.svg'),
+  'fi-rr-cross-small': chrome.runtime.getURL('ui-icons/x-lg.svg'),
+  'fi-rr-disk': chrome.runtime.getURL('ui-icons/floppy.svg'),
+  'fi-rr-download': chrome.runtime.getURL('ui-icons/download.svg'),
+  'fi-rr-eraser': chrome.runtime.getURL('ui-icons/eraser.svg'),
+  'fi-rr-file': chrome.runtime.getURL('ui-icons/file-earmark-text.svg'),
+  'fi-rr-heading': chrome.runtime.getURL('ui-icons/type-h1.svg'),
+  'fi-rr-highlighter': chrome.runtime.getURL('ui-icons/highlighter.svg'),
+  'fi-rr-highlighter-line': chrome.runtime.getURL('ui-icons/highlighter.svg'),
+  'fi-rr-images': chrome.runtime.getURL('ui-icons/image.svg'),
+  'fi-rr-italic': chrome.runtime.getURL('ui-icons/type-italic.svg'),
+  'fi-rr-layers': chrome.runtime.getURL('ui-icons/layers.svg'),
+  'fi-rr-link': chrome.runtime.getURL('ui-icons/link-45deg.svg'),
+  'fi-rr-link-slash': chrome.runtime.getURL('ui-icons/link-45deg.svg'),
+  'fi-rr-list': chrome.runtime.getURL('ui-icons/list-ul.svg'),
+  'fi-rr-list-check': chrome.runtime.getURL('ui-icons/list-ol.svg'),
+  'fi-rr-paint-brush': chrome.runtime.getURL('ui-icons/brush.svg'),
+  'fi-rr-palette': chrome.runtime.getURL('ui-icons/palette.svg'),
+  'fi-rr-paragraph': chrome.runtime.getURL('ui-icons/paragraph.svg'),
+  'fi-rr-paragraph-left': chrome.runtime.getURL('ui-icons/text-left.svg'),
+  'fi-rr-quote-right': chrome.runtime.getURL('ui-icons/blockquote-right.svg'),
+  'fi-rr-redo': chrome.runtime.getURL('ui-icons/arrow-clockwise.svg'),
+  'fi-rr-subscript': chrome.runtime.getURL('ui-icons/subscript.svg'),
+  'fi-rr-superscript': chrome.runtime.getURL('ui-icons/superscript.svg'),
+  'fi-rr-table-columns': chrome.runtime.getURL('ui-icons/table.svg'),
+  'fi-rr-table-layout': chrome.runtime.getURL('ui-icons/table.svg'),
+  'fi-rr-table-rows': chrome.runtime.getURL('ui-icons/table.svg'),
+  'fi-rr-text-size': chrome.runtime.getURL('ui-icons/type.svg'),
+  'fi-rr-text-slash': chrome.runtime.getURL('ui-icons/type-strikethrough.svg'),
+  'fi-rr-text-width': chrome.runtime.getURL('ui-icons/text-paragraph.svg'),
+  'fi-rr-trash': chrome.runtime.getURL('ui-icons/trash.svg'),
+  'fi-rr-underline': chrome.runtime.getURL('ui-icons/type-underline.svg'),
+  'fi-rr-undo': chrome.runtime.getURL('ui-icons/arrow-counterclockwise.svg')
+};
 
 export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportResult | null> {
   closeAdvancedEditor();
-  ensureFlaticonUiIconsLoaded();
 
   const backdrop = document.createElement('div');
   backdrop.id = EDITOR_BACKDROP_ID;
@@ -309,6 +351,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
   `;
 
   document.body.appendChild(backdrop);
+  hydrateUiIcons(backdrop);
 
   const editorContainer = backdrop.querySelector<HTMLElement>('.mdpdf-editor-canvas');
   const contextMenu = backdrop.querySelector<HTMLElement>('.mdpdf-context-menu');
@@ -666,10 +709,6 @@ function wireToolbar(
     const input = toolbar.querySelector<HTMLInputElement>(`input[name="${name}"]`);
     return input?.value || fallback;
   };
-
-  toolbar.addEventListener('click', () => {
-    editor.commands.focus();
-  });
 
   toolbar.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
@@ -1302,16 +1341,28 @@ export function closeAdvancedEditor() {
   }
 }
 
-function ensureFlaticonUiIconsLoaded() {
-  if (document.getElementById(FLATICON_UI_LINK_ID)) {
-    return;
-  }
+function hydrateUiIcons(scope: ParentNode) {
+  scope.querySelectorAll<HTMLElement>('i').forEach((legacyNode) => {
+    const iconKey = Array.from(legacyNode.classList).find((name) => name.startsWith('fi-rr-'));
+    if (!iconKey) {
+      return;
+    }
 
-  const link = document.createElement('link');
-  link.id = FLATICON_UI_LINK_ID;
-  link.rel = 'stylesheet';
-  link.href = FLATICON_UI_CSS_URL;
-  document.head.appendChild(link);
+    const iconUrl = UI_ICON_URLS[iconKey];
+    if (!iconUrl) {
+      return;
+    }
+
+    const img = document.createElement('img');
+    img.src = iconUrl;
+    img.alt = '';
+    img.className = 'mdpdf-ui-icon';
+    if (legacyNode.classList.contains('mdpdf-icon-flip')) {
+      img.classList.add('mdpdf-icon-flip');
+    }
+
+    legacyNode.replaceWith(img);
+  });
 }
 
 function normalizeFilename(value: string, fallback: string): string {
@@ -1563,11 +1614,18 @@ function editorUiCss(): string {
 }
 
 .mdpdf-editor-toolbar button i,
+.mdpdf-ui-icon,
 .mdpdf-color-tool i,
 .mdpdf-font-search-wrap i {
   font-size: 14px;
   line-height: 1;
   display: inline-flex;
+}
+
+.mdpdf-ui-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
 }
 
 .mdpdf-editor-toolbar button span {

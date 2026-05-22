@@ -29,6 +29,7 @@
     "@tiptap/extension-underline": "^3.23.6",
     "@tiptap/pm": "^3.23.6",
     "@tiptap/starter-kit": "^3.23.6",
+    "bootstrap-icons": "^1.13.1",
     "turndown": "^7.2.1"
   },
   "devDependencies": {

@@ -52,9 +52,9 @@ async function copyStaticAssets(apiBaseUrl) {
   await cp(path.join(srcDir, 'popup/popup.html'), path.join(outDir, 'popup.html'));
   await cp(path.join(srcDir, 'popup/popup.css'), path.join(outDir, 'popup.css'));
   await cp(path.join(srcDir, 'assets/icons'), path.join(outDir, 'icons'), { recursive: true });
+  await cp(path.join(srcDir, 'assets/ui-icons'), path.join(outDir, 'ui-icons'), { recursive: true });
   await cp(path.join(srcDir, 'assets/fonts'), path.join(outDir, 'fonts'), { recursive: true });
   await cp(path.join(srcDir, 'assets/branding/derived'), path.join(outDir, 'branding'), { recursive: true });
-  await cp(path.join(repoRoot, 'node_modules/@flaticon/flaticon-uicons/css'), path.join(outDir, 'uicons'), { recursive: true });
 }
 
 async function writeManifest(apiBaseUrl) {
