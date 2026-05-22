@@ -52,13 +52,36 @@ describe('content dom helpers', () => {
 
     expect(filename).toBe('chatgpt-answer-20260522-123456.pdf');
 
-    const request = buildDownloadRequest('# test', filename, 'Title');
+    const request = buildDownloadRequest({
+      markdown: '# test',
+      filename,
+      title: 'Title',
+      options: {
+        direction: 'auto',
+        pageNumbers: false,
+        pageBorder: false,
+        smartPagination: true,
+        fontSize: 'medium',
+        density: 'normal',
+        codeWrap: false
+      }
+    });
+
     expect(request).toEqual({
       type: 'DOWNLOAD_PDF_REQUEST',
       payload: {
         markdown: '# test',
         title: 'Title',
-        filename
+        filename,
+        options: {
+          direction: 'auto',
+          pageNumbers: false,
+          pageBorder: false,
+          smartPagination: true,
+          fontSize: 'medium',
+          density: 'normal',
+          codeWrap: false
+        }
       }
     });
   });

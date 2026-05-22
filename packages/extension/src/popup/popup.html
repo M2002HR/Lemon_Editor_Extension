@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PDF Export Settings</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="card">
+      <header class="brand-header">
+        <img src="branding/lemon-editor-wordmark-hero.png" alt="Lemon Editor" class="brand-wordmark" />
+        <h1>PDF Export Defaults</h1>
+        <p>These defaults are used in the in-page export popup.</p>
+      </header>
+
+      <form id="settings-form">
+        <label>
+          <span>Direction</span>
+          <select name="direction">
+            <option value="auto">Auto detect</option>
+            <option value="rtl">RTL</option>
+            <option value="ltr">LTR</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Font size</span>
+          <select name="fontSize">
+            <option value="small">Small</option>
+            <option value="medium">Medium</option>
+            <option value="large">Large</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Density</span>
+          <select name="density">
+            <option value="compact">Compact</option>
+            <option value="normal">Normal</option>
+            <option value="relaxed">Relaxed</option>
+          </select>
+        </label>
+
+        <label class="check"><input type="checkbox" name="smartPagination" /> Smart pagination</label>
+        <label class="check"><input type="checkbox" name="pageBorder" /> Page border</label>
+        <label class="check"><input type="checkbox" name="pageNumbers" /> Page numbers</label>
+        <label class="check"><input type="checkbox" name="codeWrap" /> Wrap long code lines</label>
+
+        <footer>
+          <span id="status" aria-live="polite"></span>
+          <button type="submit">Save defaults</button>
+        </footer>
+      </form>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

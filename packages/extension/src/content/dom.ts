@@ -1,3 +1,5 @@
+import { buildDefaultFilename as sharedBuildDefaultFilename } from '../shared/filename.js';
+
 export const ENHANCED_ATTRIBUTE = 'data-mdpdf-enhanced';
 export const ACTION_CLASS = 'mdpdf-action-row';
 
@@ -19,12 +21,5 @@ export function extractMessageHtml(messageElement: HTMLElement): string {
 }
 
 export function buildDefaultFilename(date = new Date()): string {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mi = String(date.getMinutes()).padStart(2, '0');
-  const ss = String(date.getSeconds()).padStart(2, '0');
-
-  return `chatgpt-answer-${yyyy}${mm}${dd}-${hh}${mi}${ss}.pdf`;
+  return sharedBuildDefaultFilename(date);
 }
