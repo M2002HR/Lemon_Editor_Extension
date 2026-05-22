@@ -265,6 +265,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
 
   const editor = new Editor({
     element: editorContainer,
+    textDirection: 'auto',
     extensions: [
       StarterKit,
       Underline,
@@ -727,10 +728,10 @@ function wireToolbar(
         editor.chain().focus().setTextAlign('justify').run();
         break;
       case 'rtl':
-        editor.chain().focus().setTextAlign('right').run();
+        editor.chain().focus().setTextDirection('rtl').setTextAlign('right').run();
         break;
       case 'ltr':
-        editor.chain().focus().setTextAlign('left').run();
+        editor.chain().focus().setTextDirection('ltr').setTextAlign('left').run();
         break;
       case 'applyTextColor':
         editor.chain().focus().setColor(getColor('textColor', '#0f172a')).run();
@@ -850,6 +851,12 @@ function normalizeSourceHtmlForEditor(html: string): string {
     el.removeAttribute('contenteditable');
     el.removeAttribute('data-message-author-role');
     el.removeAttribute('aria-hidden');
+  });
+
+  wrapper.querySelectorAll('p,li,blockquote,h1,h2,h3,h4,h5,h6,td,th,pre,code').forEach((el) => {
+    if (!el.hasAttribute('dir')) {
+      el.setAttribute('dir', 'auto');
+    }
   });
 
   const cleaned = wrapper.innerHTML.trim();
@@ -1262,11 +1269,22 @@ function editorUiCss(): string {
 .mdpdf-editor-canvas .mdpdf-tiptap table,
 .mdpdf-editor-canvas .mdpdf-tiptap blockquote {
   margin: 0 0 1em;
+  unicode-bidi: plaintext;
 }
 
 .mdpdf-editor-canvas .mdpdf-tiptap ul,
 .mdpdf-editor-canvas .mdpdf-tiptap ol {
   padding-inline-start: 1.45em;
+}
+
+.mdpdf-editor-canvas .mdpdf-tiptap [dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+.mdpdf-editor-canvas .mdpdf-tiptap [dir="ltr"] {
+  direction: ltr;
+  text-align: left;
 }
 
 .mdpdf-editor-canvas .mdpdf-tiptap pre {

@@ -97,8 +97,8 @@ describe('editor utilities', () => {
     `;
 
     const normalized = __editorTestUtils.normalizeSourceHtmlForEditor(source);
-    expect(normalized).toContain('<h2>Title</h2>');
-    expect(normalized).toContain('<p>Body</p>');
+    expect(normalized).toContain('<h2 dir="auto">Title</h2>');
+    expect(normalized).toContain('<p dir="auto">Body</p>');
     expect(normalized).not.toContain('mdpdf-actions');
     expect(normalized).not.toContain('<script');
     expect(normalized).not.toContain('contenteditable');
