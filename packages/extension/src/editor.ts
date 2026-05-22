@@ -90,10 +90,10 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
             <i class="fi fi-rr-disk"></i>
             <span>Save Default</span>
           </label>
-          <button type="button" class="mdpdf-secondary" data-action="cancel" title="Cancel editor">
+          <button type="button" class="mdpdf-secondary" data-action="cancel" title="Cancel editor" aria-label="Cancel editor">
             <i class="fi fi-rr-cross-small"></i><span>Cancel</span>
           </button>
-          <button type="button" class="mdpdf-primary" data-action="download" title="Download final PDF">
+          <button type="button" class="mdpdf-primary" data-action="download" title="Download final PDF" aria-label="Download final PDF">
             <i class="fi fi-rr-download"></i><span>Download PDF</span>
           </button>
           <button type="button" class="mdpdf-editor-close" aria-label="Close" title="Close editor">✕</button>
@@ -110,52 +110,52 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
             <div class="mdpdf-tool-group">
               <span class="mdpdf-tool-title">History</span>
               <div class="mdpdf-tool-items">
-                <button type="button" data-action="undo" title="Undo"><i class="fi-rr-undo"></i><span>Undo</span></button>
-                <button type="button" data-action="redo" title="Redo"><i class="fi-rr-redo"></i><span>Redo</span></button>
+                <button type="button" data-action="undo" title="Undo"><i class="fi fi-rr-undo"></i><span>Undo</span></button>
+                <button type="button" data-action="redo" title="Redo"><i class="fi fi-rr-redo"></i><span>Redo</span></button>
               </div>
             </div>
 
             <div class="mdpdf-tool-group">
               <span class="mdpdf-tool-title">Text</span>
               <div class="mdpdf-tool-items">
-                <button type="button" data-action="bold" title="Bold"><i class="fi-rr-bold"></i><span>Bold</span></button>
-                <button type="button" data-action="italic" title="Italic"><i class="fi-rr-italic"></i><span>Italic</span></button>
-                <button type="button" data-action="underline" title="Underline"><i class="fi-rr-underline"></i><span>Underline</span></button>
-                <button type="button" data-action="strike" title="Strike"><i class="fi-rr-text-slash"></i><span>Strike</span></button>
-                <button type="button" data-action="code" title="Inline code"><i class="fi-rr-code-simple"></i><span>Code</span></button>
+                <button type="button" data-action="bold" title="Bold"><i class="fi fi-rr-bold"></i><span>Bold</span></button>
+                <button type="button" data-action="italic" title="Italic"><i class="fi fi-rr-italic"></i><span>Italic</span></button>
+                <button type="button" data-action="underline" title="Underline"><i class="fi fi-rr-underline"></i><span>Underline</span></button>
+                <button type="button" data-action="strike" title="Strike"><i class="fi fi-rr-text-slash"></i><span>Strike</span></button>
+                <button type="button" data-action="code" title="Inline code"><i class="fi fi-rr-code-simple"></i><span>Code</span></button>
               </div>
             </div>
 
             <div class="mdpdf-tool-group">
               <span class="mdpdf-tool-title">Blocks</span>
               <div class="mdpdf-tool-items">
-                <button type="button" data-action="paragraph" title="Paragraph"><i class="fi-rr-paragraph"></i><span>P</span></button>
-                <button type="button" data-action="h1" title="Heading 1"><i class="fi-rr-heading"></i><span>H1</span></button>
-                <button type="button" data-action="h2" title="Heading 2"><i class="fi-rr-heading"></i><span>H2</span></button>
-                <button type="button" data-action="h3" title="Heading 3"><i class="fi-rr-heading"></i><span>H3</span></button>
-                <button type="button" data-action="blockquote" title="Quote"><i class="fi-rr-quote-right"></i><span>Quote</span></button>
-                <button type="button" data-action="codeblock" title="Code block"><i class="fi-rr-code-branch"></i><span>Code block</span></button>
+                <button type="button" data-action="paragraph" title="Paragraph"><i class="fi fi-rr-paragraph"></i><span>P</span></button>
+                <button type="button" data-action="h1" title="Heading 1"><i class="fi fi-rr-heading"></i><span>H1</span></button>
+                <button type="button" data-action="h2" title="Heading 2"><i class="fi fi-rr-heading"></i><span>H2</span></button>
+                <button type="button" data-action="h3" title="Heading 3"><i class="fi fi-rr-heading"></i><span>H3</span></button>
+                <button type="button" data-action="blockquote" title="Quote"><i class="fi fi-rr-quote-right"></i><span>Quote</span></button>
+                <button type="button" data-action="codeblock" title="Code block"><i class="fi fi-rr-code-branch"></i><span>Code block</span></button>
               </div>
             </div>
 
             <div class="mdpdf-tool-group">
               <span class="mdpdf-tool-title">Lists</span>
               <div class="mdpdf-tool-items">
-                <button type="button" data-action="bulletList" title="Bullet list"><i class="fi-rr-list"></i><span>Bullet</span></button>
-                <button type="button" data-action="orderedList" title="Numbered list"><i class="fi-rr-list-check"></i><span>Number</span></button>
-                <button type="button" data-action="taskList" title="Task list"><i class="fi-rr-checklist-task-budget"></i><span>Task</span></button>
+                <button type="button" data-action="bulletList" title="Bullet list"><i class="fi fi-rr-list"></i><span>Bullet</span></button>
+                <button type="button" data-action="orderedList" title="Numbered list"><i class="fi fi-rr-list-check"></i><span>Number</span></button>
+                <button type="button" data-action="taskList" title="Task list"><i class="fi fi-rr-checklist-task-budget"></i><span>Task</span></button>
               </div>
             </div>
 
             <div class="mdpdf-tool-group">
               <span class="mdpdf-tool-title">Align & Dir</span>
               <div class="mdpdf-tool-items">
-                <button type="button" data-action="alignLeft" title="Align left"><i class="fi-rr-align-left"></i><span>Left</span></button>
-                <button type="button" data-action="alignCenter" title="Align center"><i class="fi-rr-align-center"></i><span>Center</span></button>
-                <button type="button" data-action="alignRight" title="Align right"><i class="fi-rr-align-left mdpdf-icon-flip"></i><span>Right</span></button>
-                <button type="button" data-action="alignJustify" title="Justify"><i class="fi-rr-align-justify"></i><span>Justify</span></button>
-                <button type="button" data-action="rtl" title="Right to left line"><i class="fi-rr-text-width"></i><span>RTL</span></button>
-                <button type="button" data-action="ltr" title="Left to right line"><i class="fi-rr-text-width mdpdf-icon-flip"></i><span>LTR</span></button>
+                <button type="button" data-action="alignLeft" title="Align left"><i class="fi fi-rr-align-left"></i><span>Left</span></button>
+                <button type="button" data-action="alignCenter" title="Align center"><i class="fi fi-rr-align-center"></i><span>Center</span></button>
+                <button type="button" data-action="alignRight" title="Align right"><i class="fi fi-rr-align-left mdpdf-icon-flip"></i><span>Right</span></button>
+                <button type="button" data-action="alignJustify" title="Justify"><i class="fi fi-rr-align-justify"></i><span>Justify</span></button>
+                <button type="button" data-action="rtl" title="Right to left line"><i class="fi fi-rr-text-width"></i><span>RTL</span></button>
+                <button type="button" data-action="ltr" title="Left to right line"><i class="fi fi-rr-text-width mdpdf-icon-flip"></i><span>LTR</span></button>
               </div>
             </div>
 
@@ -213,7 +213,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
               <span class="mdpdf-tool-title">Font & Color</span>
               <div class="mdpdf-tool-items">
                 <label class="mdpdf-font-search-wrap" title="Search and apply font">
-                  <i class="fi-rr-book-font"></i>
+                  <i class="fi fi-rr-book-font"></i>
                   <input class="mdpdf-editor-select mdpdf-font-search" name="fontFamilySearch" list="mdpdf-font-list" placeholder="Search font..." />
                 </label>
                 <select class="mdpdf-editor-select" name="fontSizePx" title="Selected text size">
@@ -221,41 +221,41 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
                   ${FONT_SIZE_OPTIONS.map((size) => `<option value="${size}">${size}</option>`).join('')}
                 </select>
                 <label class="mdpdf-color-tool" title="Text color">
-                  <i class="fi-rr-palette"></i>
+                  <i class="fi fi-rr-palette"></i>
                   <span>Text</span>
                   <input type="color" name="textColor" value="#0f172a" />
                 </label>
                 <label class="mdpdf-color-tool" title="Background color">
-                  <i class="fi-rr-highlighter"></i>
+                  <i class="fi fi-rr-highlighter"></i>
                   <span>Mark</span>
                   <input type="color" name="highlightColor" value="#fff59d" />
                 </label>
-                <button type="button" data-action="applyTextColor" title="Apply text color"><i class="fi-rr-paint-brush"></i><span>Apply text</span></button>
-                <button type="button" data-action="applyHighlight" title="Apply highlight"><i class="fi-rr-highlighter-line"></i><span>Apply mark</span></button>
+                <button type="button" data-action="applyTextColor" title="Apply text color"><i class="fi fi-rr-paint-brush"></i><span>Apply text</span></button>
+                <button type="button" data-action="applyHighlight" title="Apply highlight"><i class="fi fi-rr-highlighter-line"></i><span>Apply mark</span></button>
               </div>
             </div>
 
             <div class="mdpdf-tool-group">
               <span class="mdpdf-tool-title">Insert</span>
               <div class="mdpdf-tool-items">
-                <button type="button" data-action="setLink" title="Set link"><i class="fi-rr-link"></i><span>Link</span></button>
-                <button type="button" data-action="unsetLink" title="Unset link"><i class="fi-rr-link-slash"></i><span>Unlink</span></button>
-                <button type="button" data-action="insertImage" title="Insert image by URL"><i class="fi-rr-images"></i><span>Image</span></button>
-                <button type="button" data-action="insertTable" title="Insert table"><i class="fi-rr-table-columns"></i><span>Table</span></button>
-                <button type="button" data-action="addRowAfter" title="Add row"><i class="fi-rr-add"></i><span>+Row</span></button>
-                <button type="button" data-action="addColumnAfter" title="Add column"><i class="fi-rr-add"></i><span>+Col</span></button>
-                <button type="button" data-action="mergeCells" title="Merge cells"><i class="fi-rr-table-layout"></i><span>Merge</span></button>
-                <button type="button" data-action="splitCell" title="Split cells"><i class="fi-rr-table-rows"></i><span>Split</span></button>
-                <button type="button" data-action="deleteTable" title="Delete table"><i class="fi-rr-trash"></i><span>Delete table</span></button>
+                <button type="button" data-action="setLink" title="Set link"><i class="fi fi-rr-link"></i><span>Link</span></button>
+                <button type="button" data-action="unsetLink" title="Unset link"><i class="fi fi-rr-link-slash"></i><span>Unlink</span></button>
+                <button type="button" data-action="insertImage" title="Insert image by URL"><i class="fi fi-rr-images"></i><span>Image</span></button>
+                <button type="button" data-action="insertTable" title="Insert table"><i class="fi fi-rr-table-columns"></i><span>Table</span></button>
+                <button type="button" data-action="addRowAfter" title="Add row"><i class="fi fi-rr-add"></i><span>+Row</span></button>
+                <button type="button" data-action="addColumnAfter" title="Add column"><i class="fi fi-rr-add"></i><span>+Col</span></button>
+                <button type="button" data-action="mergeCells" title="Merge cells"><i class="fi fi-rr-table-layout"></i><span>Merge</span></button>
+                <button type="button" data-action="splitCell" title="Split cells"><i class="fi fi-rr-table-rows"></i><span>Split</span></button>
+                <button type="button" data-action="deleteTable" title="Delete table"><i class="fi fi-rr-trash"></i><span>Delete table</span></button>
               </div>
             </div>
 
             <div class="mdpdf-tool-group">
               <span class="mdpdf-tool-title">Advanced</span>
               <div class="mdpdf-tool-items">
-                <button type="button" data-action="subscript" title="Subscript"><i class="fi-rr-subscript"></i><span>Sub</span></button>
-                <button type="button" data-action="superscript" title="Superscript"><i class="fi-rr-superscript"></i><span>Sup</span></button>
-                <button type="button" data-action="clear" title="Clear formatting"><i class="fi-rr-eraser"></i><span>Clear</span></button>
+                <button type="button" data-action="subscript" title="Subscript"><i class="fi fi-rr-subscript"></i><span>Sub</span></button>
+                <button type="button" data-action="superscript" title="Superscript"><i class="fi fi-rr-superscript"></i><span>Sup</span></button>
+                <button type="button" data-action="clear" title="Clear formatting"><i class="fi fi-rr-eraser"></i><span>Clear</span></button>
               </div>
             </div>
           </div>
@@ -263,10 +263,10 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
           <div class="mdpdf-context-menu" hidden>
             <div class="mdpdf-context-menu-header">Quick Actions</div>
             <div class="mdpdf-context-menu-row">
-              <button type="button" data-context-action="bold"><i class="fi-rr-bold"></i></button>
-              <button type="button" data-context-action="italic"><i class="fi-rr-italic"></i></button>
-              <button type="button" data-context-action="underline"><i class="fi-rr-underline"></i></button>
-              <button type="button" data-context-action="highlight"><i class="fi-rr-highlighter-line"></i></button>
+              <button type="button" data-context-action="bold" title="Bold" aria-label="Bold"><i class="fi fi-rr-bold"></i></button>
+              <button type="button" data-context-action="italic" title="Italic" aria-label="Italic"><i class="fi fi-rr-italic"></i></button>
+              <button type="button" data-context-action="underline" title="Underline" aria-label="Underline"><i class="fi fi-rr-underline"></i></button>
+              <button type="button" data-context-action="highlight" title="Highlight" aria-label="Highlight"><i class="fi fi-rr-highlighter-line"></i></button>
             </div>
             <div class="mdpdf-context-menu-row">
               <label>
@@ -1244,10 +1244,11 @@ function editorUiCss(): string {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  padding: 10px 14px;
+  gap: 14px;
+  padding: 8px 12px;
   border-bottom: 1px solid #d6e2f8;
-  background: #f9fcff;
+  background: linear-gradient(180deg, #fbfdff 0%, #f2f7ff 100%);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
 }
 
 .mdpdf-topbar-actions {
@@ -1256,6 +1257,10 @@ function editorUiCss(): string {
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  padding: 4px 6px;
+  border: 1px solid #dbe8fb;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.85);
 }
 
 .mdpdf-topbar-field {
@@ -1350,6 +1355,13 @@ function editorUiCss(): string {
   cursor: pointer;
 }
 
+.mdpdf-editor-toolbar button {
+  width: 32px;
+  height: 32px;
+  justify-content: center;
+  padding: 0;
+}
+
 .mdpdf-editor-toolbar button.mdpdf-active {
   border-color: #3b82f6;
   background: #eaf2ff;
@@ -1385,6 +1397,7 @@ function editorUiCss(): string {
   font-size: 11px;
   color: #334155;
   user-select: none;
+  height: 32px;
 }
 
 .mdpdf-option-chip input {
@@ -1439,8 +1452,13 @@ function editorUiCss(): string {
 }
 
 .mdpdf-editor-toolbar button span {
-  font-size: 11px;
-  line-height: 1;
+  display: none;
+}
+
+.mdpdf-topbar-actions .mdpdf-secondary span,
+.mdpdf-topbar-actions .mdpdf-primary span,
+.mdpdf-option-chip span {
+  display: none;
 }
 
 .mdpdf-icon-flip {
@@ -1699,13 +1717,21 @@ function editorUiCss(): string {
 .mdpdf-primary {
   border-radius: 10px;
   border: 1px solid #c8d8f2;
-  padding: 7px 10px;
+  padding: 0;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  gap: 0;
   font-size: 12px;
+}
+
+.mdpdf-secondary i,
+.mdpdf-primary i {
+  font-size: 15px;
 }
 
 .mdpdf-secondary {
