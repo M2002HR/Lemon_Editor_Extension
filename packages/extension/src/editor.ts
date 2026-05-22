@@ -1,4 +1,22 @@
-import Quill from 'quill';
+import { Editor } from '@tiptap/core';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import Link from '@tiptap/extension-link';
+import TextAlign from '@tiptap/extension-text-align';
+import { TextStyle } from '@tiptap/extension-text-style';
+import FontFamily from '@tiptap/extension-font-family';
+import { FontSize } from '@tiptap/extension-text-style/font-size';
+import { Color } from '@tiptap/extension-text-style/color';
+import { BackgroundColor } from '@tiptap/extension-text-style/background-color';
+import Highlight from '@tiptap/extension-highlight';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
+import { Table } from '@tiptap/extension-table';
+import TableRow from '@tiptap/extension-table-row';
+import TableHeader from '@tiptap/extension-table-header';
+import TableCell from '@tiptap/extension-table-cell';
+import Subscript from '@tiptap/extension-subscript';
+import Superscript from '@tiptap/extension-superscript';
 import { buildDefaultFilename } from './content/dom.js';
 import { EXTENSION_API_BASE_URL } from './config.js';
 import { buildFontFaceCss, getFontFamilies } from './fonts.js';
@@ -18,17 +36,6 @@ export interface EditorExportResult {
   saveAsDefault: boolean;
 }
 
-interface ToolbarState {
-  isBold: boolean;
-  isItalic: boolean;
-  isUnderline: boolean;
-  list: 'ordered' | 'bullet' | null;
-  header: 2 | null;
-  direction: 'rtl' | 'ltr' | null;
-  color: string;
-  background: string;
-}
-
 interface SidebarSnapshot {
   filename: string;
   direction: PdfRenderOptions['direction'];
@@ -43,14 +50,10 @@ interface SidebarSnapshot {
 const EDITOR_BACKDROP_ID = 'mdpdf-editor-backdrop';
 const BRAND_MARK_URL = chrome.runtime.getURL('branding/lemon-editor-mark-512.png');
 const rtlScript = /[\u0590-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
-const QUILL_SOURCE_USER = 'user';
-const FONT_SIZES = ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px'];
-
-let quillConfigured = false;
+const FONT_SIZE_OPTIONS = ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px'];
 
 export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportResult | null> {
   closeAdvancedEditor();
-  configureQuillOnce();
 
   const backdrop = document.createElement('div');
   backdrop.id = EDITOR_BACKDROP_ID;
@@ -65,13 +68,14 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
       ${buildFontFaceCss()}
       ${editorUiCss()}
     </style>
+
     <div class="mdpdf-editor-shell" role="dialog" aria-modal="true" aria-label="Advanced PDF editor">
       <header class="mdpdf-editor-topbar">
         <div class="mdpdf-editor-brand">
           <img src="${BRAND_MARK_URL}" alt="Lemon Editor mark" />
           <div>
-            <h2>Lemon Editor (Open Source Core: Quill)</h2>
-            <p>Live preview updates in real time and final download uses same HTML/options.</p>
+            <h2>Lemon Editor (Open Source: Tiptap)</h2>
+            <p>Initial content is normalized into editor document model, then edited as rich content.</p>
           </div>
         </div>
         <button type="button" class="mdpdf-editor-close" aria-label="Close">✕</button>
@@ -80,15 +84,33 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
       <div class="mdpdf-editor-main">
         <section class="mdpdf-editor-left">
           <div class="mdpdf-editor-toolbar" role="toolbar" aria-label="Text tools">
-            <button type="button" data-action="undo" title="Undo">Undo</button>
-            <button type="button" data-action="redo" title="Redo">Redo</button>
-            <button type="button" data-format="bold" title="Bold"><b>B</b></button>
-            <button type="button" data-format="italic" title="Italic"><i>I</i></button>
-            <button type="button" data-format="underline" title="Underline"><u>U</u></button>
-            <button type="button" data-list="bullet" title="Bulleted list">• List</button>
-            <button type="button" data-list="ordered" title="Numbered list">1. List</button>
-            <button type="button" data-header="0" title="Paragraph">P</button>
-            <button type="button" data-header="2" title="Heading 2">H2</button>
+            <button type="button" data-action="undo">Undo</button>
+            <button type="button" data-action="redo">Redo</button>
+
+            <button type="button" data-action="bold"><b>B</b></button>
+            <button type="button" data-action="italic"><i>I</i></button>
+            <button type="button" data-action="underline"><u>U</u></button>
+            <button type="button" data-action="strike"><s>S</s></button>
+            <button type="button" data-action="code">Inline Code</button>
+
+            <button type="button" data-action="paragraph">P</button>
+            <button type="button" data-action="h1">H1</button>
+            <button type="button" data-action="h2">H2</button>
+            <button type="button" data-action="h3">H3</button>
+            <button type="button" data-action="blockquote">Quote</button>
+            <button type="button" data-action="codeblock">Code Block</button>
+
+            <button type="button" data-action="bulletList">• List</button>
+            <button type="button" data-action="orderedList">1. List</button>
+            <button type="button" data-action="taskList">☐ Task</button>
+
+            <button type="button" data-action="alignLeft">Left</button>
+            <button type="button" data-action="alignCenter">Center</button>
+            <button type="button" data-action="alignRight">Right</button>
+            <button type="button" data-action="alignJustify">Justify</button>
+
+            <button type="button" data-action="rtl">RTL Line</button>
+            <button type="button" data-action="ltr">LTR Line</button>
 
             <select class="mdpdf-editor-select" name="fontFamily" title="Font family">
               <option value="">Font</option>
@@ -97,31 +119,40 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
 
             <select class="mdpdf-editor-select" name="fontSizePx" title="Selected text size">
               <option value="">Text size</option>
-              ${FONT_SIZES.map((size) => `<option value="${size}">${size}</option>`).join('')}
+              ${FONT_SIZE_OPTIONS.map((size) => `<option value="${size}">${size}</option>`).join('')}
             </select>
 
             <label class="mdpdf-color-tool" title="Text color">
               <span>Text</span>
               <input type="color" name="textColor" value="#0f172a" />
             </label>
-            <label class="mdpdf-color-tool" title="Highlight color">
+            <label class="mdpdf-color-tool" title="Background color">
               <span>Mark</span>
               <input type="color" name="highlightColor" value="#fff59d" />
             </label>
 
-            <button type="button" data-action="applyTextColor" title="Apply text color">Apply Text</button>
-            <button type="button" data-action="applyHighlight" title="Apply highlight">Apply Mark</button>
+            <button type="button" data-action="applyTextColor">Apply Text</button>
+            <button type="button" data-action="applyHighlight">Apply Mark</button>
 
-            <button type="button" data-dir="rtl" title="Current line RTL">RTL Line</button>
-            <button type="button" data-dir="ltr" title="Current line LTR">LTR Line</button>
-            <button type="button" data-action="clear" title="Remove formatting">Clear</button>
+            <button type="button" data-action="setLink">Link</button>
+            <button type="button" data-action="unsetLink">Unlink</button>
+            <button type="button" data-action="insertImage">Image URL</button>
+
+            <button type="button" data-action="insertTable">Table</button>
+            <button type="button" data-action="addRowAfter">+Row</button>
+            <button type="button" data-action="addColumnAfter">+Col</button>
+            <button type="button" data-action="mergeCells">Merge</button>
+            <button type="button" data-action="splitCell">Split</button>
+            <button type="button" data-action="deleteTable">Del Table</button>
+
+            <button type="button" data-action="subscript">Sub</button>
+            <button type="button" data-action="superscript">Sup</button>
+            <button type="button" data-action="clear">Clear</button>
           </div>
 
           <div class="mdpdf-editor-canvas-wrap">
             <div class="mdpdf-page-overlay"></div>
-            <div class="mdpdf-quill-shell">
-              <div class="mdpdf-editor-canvas"></div>
-            </div>
+            <div class="mdpdf-editor-canvas"></div>
           </div>
         </section>
 
@@ -164,7 +195,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
           <label class="mdpdf-editor-check"><input type="checkbox" name="codeWrap" /> Wrap long code lines</label>
           <label class="mdpdf-editor-check"><input type="checkbox" name="saveAsDefault" /> Save as default settings</label>
 
-          <p class="mdpdf-editor-note">Editor uses Quill open-source engine. Live preview is rendered by the same PDF service as download.</p>
+          <p class="mdpdf-editor-note">Preview uses the same render API as final download, so final PDF should match this preview.</p>
 
           <div class="mdpdf-live-preview">
             <div class="mdpdf-live-preview-header">
@@ -187,7 +218,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
 
   document.body.appendChild(backdrop);
 
-  const editorHost = backdrop.querySelector<HTMLElement>('.mdpdf-editor-canvas');
+  const editorContainer = backdrop.querySelector<HTMLElement>('.mdpdf-editor-canvas');
   const canvasWrap = backdrop.querySelector<HTMLElement>('.mdpdf-editor-canvas-wrap');
   const overlay = backdrop.querySelector<HTMLElement>('.mdpdf-page-overlay');
   const filenameInput = backdrop.querySelector<HTMLInputElement>('input[name="filename"]');
@@ -203,7 +234,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
   const livePreviewStatus = backdrop.querySelector<HTMLElement>('.mdpdf-live-preview-status');
 
   if (
-    !editorHost ||
+    !editorContainer ||
     !canvasWrap ||
     !overlay ||
     !filenameInput ||
@@ -230,19 +261,50 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
   pageNumbersInput.checked = args.options.pageNumbers;
   codeWrapInput.checked = args.options.codeWrap;
 
-  const quill = new Quill(editorHost, {
-    modules: {
-      history: {
-        delay: 500,
-        maxStack: 300,
-        userOnly: false
-      },
-      toolbar: false
+  const initialNormalizedHtml = normalizeSourceHtmlForEditor(args.html);
+
+  const editor = new Editor({
+    element: editorContainer,
+    extensions: [
+      StarterKit,
+      Underline,
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+        linkOnPaste: true,
+        defaultProtocol: 'https'
+      }),
+      TextStyle,
+      FontFamily,
+      FontSize,
+      Color,
+      BackgroundColor,
+      Highlight.configure({ multicolor: true }),
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+        alignments: ['left', 'center', 'right', 'justify']
+      }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Table.configure({
+        resizable: false,
+        allowTableNodeSelection: true
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      Subscript,
+      Superscript
+    ],
+    content: initialNormalizedHtml,
+    editorProps: {
+      attributes: {
+        class: 'mdpdf-tiptap'
+      }
     }
   });
 
-  quill.clipboard.dangerouslyPasteHTML(args.html || '<p><br></p>', QUILL_SOURCE_USER);
-  quill.history.clear();
+  const getEditorRoot = () => editor.view.dom as HTMLElement;
 
   const readOptionsFromSidebar = () =>
     normalizeExportOptions({
@@ -268,7 +330,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
 
   const sidebarHistory: SidebarSnapshot[] = [readSidebarSnapshot()];
   let sidebarHistoryIndex = 0;
-  let syncingSidebarHistory = false;
+  let applyingSidebarHistory = false;
 
   let previewTimer: number | null = null;
   let previewAbort: AbortController | null = null;
@@ -287,13 +349,14 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
     previewTimer = window.setTimeout(() => {
       previewTimer = null;
       void updatePdfPreview();
-    }, 550);
+    }, 520);
   };
 
   const syncPreviewLayout = () => {
     const options = readOptionsFromSidebar();
-    applyPreviewSettings(quill.root, canvasWrap, overlay, options);
-    renderPageOverlay(quill.root, overlay, options.pageBorder, options.pageNumbers);
+    const root = getEditorRoot();
+    applyPreviewSettings(root, canvasWrap, overlay, options);
+    renderPageOverlay(root, overlay, options.pageBorder, options.pageNumbers);
   };
 
   const syncLivePreview = () => {
@@ -301,10 +364,44 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
     schedulePdfPreview();
   };
 
+  const pushSidebarHistory = () => {
+    if (applyingSidebarHistory) {
+      return;
+    }
+
+    const snapshot = readSidebarSnapshot();
+    const current = sidebarHistory[sidebarHistoryIndex];
+    if (current && areSidebarSnapshotsEqual(current, snapshot)) {
+      return;
+    }
+
+    sidebarHistory.splice(sidebarHistoryIndex + 1);
+    sidebarHistory.push(snapshot);
+
+    if (sidebarHistory.length > 120) {
+      sidebarHistory.shift();
+    }
+
+    sidebarHistoryIndex = sidebarHistory.length - 1;
+  };
+
+  const applySidebarSnapshot = (snapshot: SidebarSnapshot) => {
+    applyingSidebarHistory = true;
+    filenameInput.value = snapshot.filename;
+    directionSelect.value = snapshot.direction;
+    fontSizeSelect.value = snapshot.fontSize;
+    densitySelect.value = snapshot.density;
+    smartPaginationInput.checked = snapshot.smartPagination;
+    pageBorderInput.checked = snapshot.pageBorder;
+    pageNumbersInput.checked = snapshot.pageNumbers;
+    codeWrapInput.checked = snapshot.codeWrap;
+    applyingSidebarHistory = false;
+  };
+
   const updatePdfPreview = async () => {
     const options = readOptionsFromSidebar();
     const payload = {
-      html: quill.root.innerHTML,
+      html: buildExportHtml(editor),
       options
     };
 
@@ -343,104 +440,96 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
         return;
       }
 
-      const message = error instanceof Error ? error.message : 'Preview failed';
-      setLivePreviewStatus(message);
+      setLivePreviewStatus(error instanceof Error ? error.message : 'Preview failed');
+    }
+  };
+
+  const setActiveStates = () => {
+    const state = {
+      bold: editor.isActive('bold'),
+      italic: editor.isActive('italic'),
+      underline: editor.isActive('underline'),
+      strike: editor.isActive('strike'),
+      code: editor.isActive('code'),
+      blockquote: editor.isActive('blockquote'),
+      codeblock: editor.isActive('codeBlock'),
+      bulletList: editor.isActive('bulletList'),
+      orderedList: editor.isActive('orderedList'),
+      taskList: editor.isActive('taskList'),
+      h1: editor.isActive('heading', { level: 1 }),
+      h2: editor.isActive('heading', { level: 2 }),
+      h3: editor.isActive('heading', { level: 3 })
+    };
+
+    backdrop.querySelectorAll<HTMLButtonElement>('.mdpdf-editor-toolbar button').forEach((button) => {
+      const action = button.getAttribute('data-action');
+      if (!action) {
+        button.classList.remove('mdpdf-active');
+        return;
+      }
+
+      const active = Boolean((state as Record<string, boolean>)[action]);
+      button.classList.toggle('mdpdf-active', active);
+    });
+
+    const textColorInput = backdrop.querySelector<HTMLInputElement>('input[name="textColor"]');
+    const highlightColorInput = backdrop.querySelector<HTMLInputElement>('input[name="highlightColor"]');
+    const fontFamilySelect = backdrop.querySelector<HTMLSelectElement>('select[name="fontFamily"]');
+    const fontSizePxSelect = backdrop.querySelector<HTMLSelectElement>('select[name="fontSizePx"]');
+
+    const attrs = editor.getAttributes('textStyle') as {
+      color?: string | null;
+      backgroundColor?: string | null;
+      fontFamily?: string | null;
+      fontSize?: string | null;
+    };
+
+    if (textColorInput && attrs.color) {
+      textColorInput.value = normalizeHexColor(attrs.color);
+    }
+
+    if (highlightColorInput && attrs.backgroundColor) {
+      highlightColorInput.value = normalizeHexColor(attrs.backgroundColor);
+    }
+
+    if (fontFamilySelect) {
+      fontFamilySelect.value = attrs.fontFamily ?? '';
+    }
+
+    if (fontSizePxSelect) {
+      fontSizePxSelect.value = attrs.fontSize ?? '';
     }
   };
 
   const onSidebarMutation = () => {
-    if (!syncingSidebarHistory) {
-      pushSidebarHistory(sidebarHistory, () => sidebarHistoryIndex, (next) => {
-        sidebarHistoryIndex = next;
-      }, readSidebarSnapshot);
-    }
-
+    pushSidebarHistory();
     syncLivePreview();
   };
 
-  const applySidebarSnapshot = (snapshot: SidebarSnapshot) => {
-    syncingSidebarHistory = true;
-    filenameInput.value = snapshot.filename;
-    directionSelect.value = snapshot.direction;
-    fontSizeSelect.value = snapshot.fontSize;
-    densitySelect.value = snapshot.density;
-    smartPaginationInput.checked = snapshot.smartPagination;
-    pageBorderInput.checked = snapshot.pageBorder;
-    pageNumbersInput.checked = snapshot.pageNumbers;
-    codeWrapInput.checked = snapshot.codeWrap;
-    syncingSidebarHistory = false;
-  };
-
-  const setToolbarState = () => {
-    const format = quill.getFormat();
-
-    const state: ToolbarState = {
-      isBold: format.bold === true,
-      isItalic: format.italic === true,
-      isUnderline: format.underline === true,
-      list: format.list === 'ordered' || format.list === 'bullet' ? format.list : null,
-      header: format.header === 2 ? 2 : null,
-      direction: format.direction === 'rtl' ? 'rtl' : format.direction === 'ltr' ? 'ltr' : null,
-      color: typeof format.color === 'string' ? normalizeHexColor(format.color) : '#0f172a',
-      background: typeof format.background === 'string' ? normalizeHexColor(format.background) : '#fff59d'
-    };
-
-    backdrop.querySelectorAll<HTMLButtonElement>('.mdpdf-editor-toolbar button').forEach((button) => {
-      const active =
-        (button.getAttribute('data-format') === 'bold' && state.isBold) ||
-        (button.getAttribute('data-format') === 'italic' && state.isItalic) ||
-        (button.getAttribute('data-format') === 'underline' && state.isUnderline) ||
-        (button.getAttribute('data-list') === state.list) ||
-        (button.getAttribute('data-header') === '2' && state.header === 2) ||
-        (button.getAttribute('data-header') === '0' && state.header === null) ||
-        (button.getAttribute('data-dir') === state.direction);
-
-      button.classList.toggle('mdpdf-active', active);
-    });
-
-    const textColor = backdrop.querySelector<HTMLInputElement>('input[name="textColor"]');
-    const highlightColor = backdrop.querySelector<HTMLInputElement>('input[name="highlightColor"]');
-    if (textColor) {
-      textColor.value = state.color;
+  wireToolbar(backdrop, editor, setActiveStates, syncLivePreview, () => {
+    if (sidebarHistoryIndex > 0) {
+      sidebarHistoryIndex -= 1;
+      applySidebarSnapshot(sidebarHistory[sidebarHistoryIndex] as SidebarSnapshot);
     }
-    if (highlightColor) {
-      highlightColor.value = state.background;
-    }
-  };
-
-  wireToolbar(backdrop, quill, syncLivePreview, onSidebarMutation, setToolbarState, () => {
-    if (sidebarHistoryIndex <= 0) {
-      quill.history.undo();
-      return;
-    }
-
-    sidebarHistoryIndex -= 1;
-    applySidebarSnapshot(sidebarHistory[sidebarHistoryIndex] as SidebarSnapshot);
-    quill.history.undo();
+    editor.commands.undo();
     syncLivePreview();
   }, () => {
-    if (sidebarHistoryIndex >= sidebarHistory.length - 1) {
-      quill.history.redo();
-      return;
+    if (sidebarHistoryIndex < sidebarHistory.length - 1) {
+      sidebarHistoryIndex += 1;
+      applySidebarSnapshot(sidebarHistory[sidebarHistoryIndex] as SidebarSnapshot);
     }
-
-    sidebarHistoryIndex += 1;
-    applySidebarSnapshot(sidebarHistory[sidebarHistoryIndex] as SidebarSnapshot);
-    quill.history.redo();
+    editor.commands.redo();
     syncLivePreview();
   });
 
-  const onTextChange = () => {
-    setToolbarState();
+  editor.on('update', () => {
+    setActiveStates();
     syncLivePreview();
-  };
+  });
 
-  const onSelectionChange = () => {
-    setToolbarState();
-  };
-
-  quill.on('text-change', onTextChange);
-  quill.on('selection-change', onSelectionChange);
+  editor.on('selectionUpdate', () => {
+    setActiveStates();
+  });
 
   window.addEventListener('resize', syncPreviewLayout);
   directionSelect.addEventListener('change', onSidebarMutation);
@@ -452,16 +541,37 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
   codeWrapInput.addEventListener('change', onSidebarMutation);
   filenameInput.addEventListener('input', onSidebarMutation);
 
-  quill.focus();
-  setToolbarState();
+  backdrop.addEventListener('keydown', (event) => {
+    const isMod = event.ctrlKey || event.metaKey;
+    const key = event.key.toLowerCase();
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      backdrop.querySelector<HTMLElement>('[data-action="cancel"]')?.click();
+      return;
+    }
+
+    if (isMod && key === 'z' && !event.shiftKey) {
+      event.preventDefault();
+      editor.commands.undo();
+      syncLivePreview();
+      return;
+    }
+
+    if (isMod && (key === 'y' || (key === 'z' && event.shiftKey))) {
+      event.preventDefault();
+      editor.commands.redo();
+      syncLivePreview();
+    }
+  });
+
+  editor.commands.focus('end');
+  setActiveStates();
   syncLivePreview();
 
   return new Promise((resolve) => {
     const cleanup = () => {
       window.removeEventListener('resize', syncPreviewLayout);
-      quill.off('text-change', onTextChange);
-      quill.off('selection-change', onSelectionChange);
-
       directionSelect.removeEventListener('change', onSidebarMutation);
       fontSizeSelect.removeEventListener('change', onSidebarMutation);
       densitySelect.removeEventListener('change', onSidebarMutation);
@@ -480,6 +590,8 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
+
+      editor.destroy();
     };
 
     const close = (result: EditorExportResult | null) => {
@@ -496,41 +608,16 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
       }
     });
 
-    backdrop.addEventListener('keydown', (event) => {
-      const isMod = event.ctrlKey || event.metaKey;
-      const key = event.key.toLowerCase();
-
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        cancel();
-        return;
-      }
-
-      if (isMod && key === 'z' && !event.shiftKey) {
-        event.preventDefault();
-        quill.history.undo();
-        syncLivePreview();
-        return;
-      }
-
-      if (isMod && (key === 'y' || (key === 'z' && event.shiftKey))) {
-        event.preventDefault();
-        quill.history.redo();
-        syncLivePreview();
-      }
-    });
-
     backdrop.querySelector('.mdpdf-editor-close')?.addEventListener('click', cancel);
     backdrop.querySelector('[data-action="cancel"]')?.addEventListener('click', cancel);
 
     backdrop.querySelector('[data-action="download"]')?.addEventListener('click', () => {
       const filename = normalizeFilename(filenameInput.value, args.filename);
       const options = readOptionsFromSidebar();
-      const html = stripQuillArtifacts(quill.root.innerHTML);
 
       close({
         filename,
-        html,
+        html: buildExportHtml(editor),
         options,
         saveAsDefault: saveAsDefaultInput.checked
       });
@@ -538,30 +625,11 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
   });
 }
 
-function configureQuillOnce() {
-  if (quillConfigured) {
-    return;
-  }
-
-  const families = ['Tahoma', 'Vazirmatn', ...getFontFamilies()];
-
-  const FontStyle = Quill.import('attributors/style/font') as { whitelist: string[] };
-  FontStyle.whitelist = families;
-  Quill.register('attributors/style/font', FontStyle, true);
-
-  const SizeStyle = Quill.import('attributors/style/size') as { whitelist: string[] };
-  SizeStyle.whitelist = FONT_SIZES;
-  Quill.register('attributors/style/size', SizeStyle, true);
-
-  quillConfigured = true;
-}
-
 function wireToolbar(
   backdrop: HTMLElement,
-  quill: Quill,
+  editor: Editor,
+  setActiveStates: () => void,
   syncLivePreview: () => void,
-  onSidebarMutation: () => void,
-  setToolbarState: () => void,
   undoAction: () => void,
   redoAction: () => void
 ) {
@@ -570,15 +638,19 @@ function wireToolbar(
     return;
   }
 
-  const fontSelect = toolbar.querySelector<HTMLSelectElement>('select[name="fontFamily"]');
-  const fontSizePxSelect = toolbar.querySelector<HTMLSelectElement>('select[name="fontSizePx"]');
-  const textColorInput = toolbar.querySelector<HTMLInputElement>('input[name="textColor"]');
-  const highlightColorInput = toolbar.querySelector<HTMLInputElement>('input[name="highlightColor"]');
-
-  toolbar.querySelectorAll<HTMLButtonElement>('button').forEach((btn) => {
-    btn.addEventListener('mousedown', (event) => {
+  toolbar.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
+    button.addEventListener('mousedown', (event) => {
       event.preventDefault();
     });
+  });
+
+  const getColor = (name: 'textColor' | 'highlightColor', fallback: string): string => {
+    const input = toolbar.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+    return input?.value || fallback;
+  };
+
+  toolbar.addEventListener('click', () => {
+    editor.commands.focus();
   });
 
   toolbar.addEventListener('click', (event) => {
@@ -589,175 +661,208 @@ function wireToolbar(
     }
 
     const action = button.getAttribute('data-action');
-    if (action === 'undo') {
-      undoAction();
-      setToolbarState();
+    if (!action) {
       return;
     }
 
-    if (action === 'redo') {
-      redoAction();
-      setToolbarState();
-      return;
+    switch (action) {
+      case 'undo':
+        undoAction();
+        break;
+      case 'redo':
+        redoAction();
+        break;
+      case 'bold':
+        editor.chain().focus().toggleBold().run();
+        break;
+      case 'italic':
+        editor.chain().focus().toggleItalic().run();
+        break;
+      case 'underline':
+        editor.chain().focus().toggleUnderline().run();
+        break;
+      case 'strike':
+        editor.chain().focus().toggleStrike().run();
+        break;
+      case 'code':
+        editor.chain().focus().toggleCode().run();
+        break;
+      case 'paragraph':
+        editor.chain().focus().setParagraph().run();
+        break;
+      case 'h1':
+        editor.chain().focus().toggleHeading({ level: 1 }).run();
+        break;
+      case 'h2':
+        editor.chain().focus().toggleHeading({ level: 2 }).run();
+        break;
+      case 'h3':
+        editor.chain().focus().toggleHeading({ level: 3 }).run();
+        break;
+      case 'blockquote':
+        editor.chain().focus().toggleBlockquote().run();
+        break;
+      case 'codeblock':
+        editor.chain().focus().toggleCodeBlock().run();
+        break;
+      case 'bulletList':
+        editor.chain().focus().toggleBulletList().run();
+        break;
+      case 'orderedList':
+        editor.chain().focus().toggleOrderedList().run();
+        break;
+      case 'taskList':
+        editor.chain().focus().toggleTaskList().run();
+        break;
+      case 'alignLeft':
+        editor.chain().focus().setTextAlign('left').run();
+        break;
+      case 'alignCenter':
+        editor.chain().focus().setTextAlign('center').run();
+        break;
+      case 'alignRight':
+        editor.chain().focus().setTextAlign('right').run();
+        break;
+      case 'alignJustify':
+        editor.chain().focus().setTextAlign('justify').run();
+        break;
+      case 'rtl':
+        editor.chain().focus().setTextAlign('right').run();
+        break;
+      case 'ltr':
+        editor.chain().focus().setTextAlign('left').run();
+        break;
+      case 'applyTextColor':
+        editor.chain().focus().setColor(getColor('textColor', '#0f172a')).run();
+        break;
+      case 'applyHighlight':
+        editor.chain().focus().setBackgroundColor(getColor('highlightColor', '#fff59d')).run();
+        break;
+      case 'setLink': {
+        const previous = editor.getAttributes('link').href as string | undefined;
+        const href = window.prompt('Enter URL', previous || 'https://');
+        if (href === null) {
+          break;
+        }
+
+        const normalized = href.trim();
+        if (!normalized) {
+          editor.chain().focus().unsetLink().run();
+        } else {
+          editor.chain().focus().extendMarkRange('link').setLink({ href: normalized }).run();
+        }
+        break;
+      }
+      case 'unsetLink':
+        editor.chain().focus().unsetLink().run();
+        break;
+      case 'insertImage': {
+        const url = window.prompt('Image URL', 'https://');
+        if (!url) {
+          break;
+        }
+
+        const safe = url.trim();
+        if (!safe) {
+          break;
+        }
+
+        editor.chain().focus().insertContent(`<img src="${escapeAttribute(safe)}" alt="" />`).run();
+        break;
+      }
+      case 'insertTable':
+        editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+        break;
+      case 'addRowAfter':
+        editor.chain().focus().addRowAfter().run();
+        break;
+      case 'addColumnAfter':
+        editor.chain().focus().addColumnAfter().run();
+        break;
+      case 'mergeCells':
+        editor.chain().focus().mergeCells().run();
+        break;
+      case 'splitCell':
+        editor.chain().focus().splitCell().run();
+        break;
+      case 'deleteTable':
+        editor.chain().focus().deleteTable().run();
+        break;
+      case 'subscript':
+        editor.chain().focus().toggleSubscript().run();
+        break;
+      case 'superscript':
+        editor.chain().focus().toggleSuperscript().run();
+        break;
+      case 'clear': {
+        const selection = editor.state.selection;
+        if (selection.empty) {
+          editor.chain().focus().unsetAllMarks().clearNodes().run();
+        } else {
+          editor.chain().focus().unsetAllMarks().run();
+        }
+        break;
+      }
+      default:
+        break;
     }
 
-    const format = button.getAttribute('data-format');
-    if (format === 'bold' || format === 'italic' || format === 'underline') {
-      toggleInlineFormat(quill, format);
-      setToolbarState();
-      syncLivePreview();
-      return;
-    }
-
-    const list = button.getAttribute('data-list');
-    if (list === 'ordered' || list === 'bullet') {
-      toggleListFormat(quill, list);
-      setToolbarState();
-      syncLivePreview();
-      return;
-    }
-
-    const headerValue = button.getAttribute('data-header');
-    if (headerValue === '0' || headerValue === '2') {
-      setHeaderFormat(quill, Number(headerValue));
-      setToolbarState();
-      syncLivePreview();
-      return;
-    }
-
-    const dir = button.getAttribute('data-dir');
-    if (dir === 'rtl' || dir === 'ltr') {
-      setDirectionForLine(quill, dir);
-      setToolbarState();
-      syncLivePreview();
-      return;
-    }
-
-    if (action === 'applyTextColor' && textColorInput) {
-      quill.focus();
-      quill.format('color', textColorInput.value, QUILL_SOURCE_USER);
-      syncLivePreview();
-      return;
-    }
-
-    if (action === 'applyHighlight' && highlightColorInput) {
-      quill.focus();
-      quill.format('background', highlightColorInput.value, QUILL_SOURCE_USER);
-      syncLivePreview();
-      return;
-    }
-
-    if (action === 'clear') {
-      clearFormatting(quill);
-      setToolbarState();
-      syncLivePreview();
-    }
+    setActiveStates();
+    syncLivePreview();
   });
 
+  const fontSelect = toolbar.querySelector<HTMLSelectElement>('select[name="fontFamily"]');
   if (fontSelect) {
     fontSelect.addEventListener('change', () => {
+      editor.commands.focus();
       if (!fontSelect.value) {
-        return;
+        editor.chain().focus().unsetFontFamily().run();
+      } else {
+        editor.chain().focus().setFontFamily(fontSelect.value).run();
       }
-
-      quill.focus();
-      quill.format('font', fontSelect.value, QUILL_SOURCE_USER);
-      fontSelect.value = '';
-      setToolbarState();
       syncLivePreview();
     });
   }
 
-  if (fontSizePxSelect) {
-    fontSizePxSelect.addEventListener('change', () => {
-      if (!fontSizePxSelect.value) {
-        return;
+  const fontSizeSelect = toolbar.querySelector<HTMLSelectElement>('select[name="fontSizePx"]');
+  if (fontSizeSelect) {
+    fontSizeSelect.addEventListener('change', () => {
+      editor.commands.focus();
+      if (!fontSizeSelect.value) {
+        editor.chain().focus().unsetFontSize().run();
+      } else {
+        editor.chain().focus().setFontSize(fontSizeSelect.value).run();
       }
-
-      quill.focus();
-      quill.format('size', fontSizePxSelect.value, QUILL_SOURCE_USER);
-      fontSizePxSelect.value = '';
-      setToolbarState();
       syncLivePreview();
     });
   }
+}
 
-  backdrop.querySelectorAll<HTMLInputElement | HTMLSelectElement>('.mdpdf-editor-right input, .mdpdf-editor-right select').forEach((item) => {
-    item.addEventListener('change', onSidebarMutation);
+function normalizeSourceHtmlForEditor(html: string): string {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = html || '<p></p>';
+
+  wrapper.querySelectorAll('.mdpdf-actions, .mdpdf-action-row, script, style').forEach((el) => {
+    el.remove();
   });
-}
 
-function toggleInlineFormat(quill: Quill, format: 'bold' | 'italic' | 'underline') {
-  const current = quill.getFormat();
-  const enabled = current[format] === true;
-  quill.focus();
-  quill.format(format, !enabled, QUILL_SOURCE_USER);
-}
+  wrapper.querySelectorAll('[contenteditable], [data-message-author-role], [aria-hidden="true"]').forEach((el) => {
+    el.removeAttribute('contenteditable');
+    el.removeAttribute('data-message-author-role');
+    el.removeAttribute('aria-hidden');
+  });
 
-function toggleListFormat(quill: Quill, value: 'ordered' | 'bullet') {
-  const format = quill.getFormat();
-  const next = format.list === value ? false : value;
-  quill.focus();
-  quill.format('list', next, QUILL_SOURCE_USER);
-}
-
-function setHeaderFormat(quill: Quill, value: number) {
-  const format = quill.getFormat();
-  const isActive = format.header === value;
-  quill.focus();
-  quill.format('header', isActive || value === 0 ? false : value, QUILL_SOURCE_USER);
-}
-
-function clearFormatting(quill: Quill) {
-  const range = quill.getSelection(true);
-  if (!range) {
-    return;
+  const cleaned = wrapper.innerHTML.trim();
+  if (!cleaned) {
+    return '<p></p>';
   }
 
-  if (range.length > 0) {
-    quill.removeFormat(range.index, range.length, QUILL_SOURCE_USER);
-    return;
-  }
-
-  quill.format('bold', false, QUILL_SOURCE_USER);
-  quill.format('italic', false, QUILL_SOURCE_USER);
-  quill.format('underline', false, QUILL_SOURCE_USER);
-  quill.format('color', false, QUILL_SOURCE_USER);
-  quill.format('background', false, QUILL_SOURCE_USER);
-  quill.format('size', false, QUILL_SOURCE_USER);
-  quill.format('font', false, QUILL_SOURCE_USER);
+  return cleaned;
 }
 
-function setDirectionForLine(quill: Quill, dir: 'rtl' | 'ltr') {
-  const range = quill.getSelection(true);
-  if (!range) {
-    return;
-  }
-
-  const length = Math.max(range.length, 1);
-  quill.formatLine(range.index, length, 'direction', dir === 'rtl' ? 'rtl' : false, QUILL_SOURCE_USER);
-  quill.formatLine(range.index, length, 'align', dir === 'rtl' ? 'right' : false, QUILL_SOURCE_USER);
-}
-
-function pushSidebarHistory(
-  history: SidebarSnapshot[],
-  getIndex: () => number,
-  setIndex: (next: number) => void,
-  readSnapshot: () => SidebarSnapshot
-) {
-  const snapshot = readSnapshot();
-  const current = history[getIndex()];
-  if (current && areSidebarSnapshotsEqual(current, snapshot)) {
-    return;
-  }
-
-  history.splice(getIndex() + 1);
-  history.push(snapshot);
-  if (history.length > 120) {
-    history.shift();
-  }
-
-  setIndex(history.length - 1);
+function buildExportHtml(editor: Editor): string {
+  const html = editor.getHTML();
+  return html.trim() || '<p></p>';
 }
 
 function applyPreviewSettings(root: HTMLElement, canvasWrap: HTMLElement, overlay: HTMLElement, options: PdfRenderOptions) {
@@ -864,31 +969,18 @@ function areSidebarSnapshotsEqual(current: SidebarSnapshot, next: SidebarSnapsho
   );
 }
 
-function stripQuillArtifacts(html: string): string {
-  const cleaned = html
-    .replace(/ class="ql-align-(right|center|justify)"/g, '')
-    .replace(/ class="ql-direction-rtl"/g, '')
-    .replace(/<p><br><\/p>/g, '<p></p>');
-
-  return cleaned.trim();
-}
-
 function normalizeHexColor(color: string): string {
-  if (!color) {
-    return '#0f172a';
-  }
-
   if (/^#[0-9a-f]{6}$/i.test(color)) {
     return color.toLowerCase();
   }
 
-  const temp = document.createElement('span');
-  temp.style.color = color;
-  document.body.appendChild(temp);
-  const value = getComputedStyle(temp).color;
-  temp.remove();
+  const probe = document.createElement('span');
+  probe.style.color = color;
+  document.body.appendChild(probe);
+  const computed = getComputedStyle(probe).color;
+  probe.remove();
 
-  const match = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  const match = computed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
   if (!match) {
     return '#0f172a';
   }
@@ -919,7 +1011,8 @@ export const __editorTestUtils = {
   normalizeDirectionValue,
   normalizeFontSizeValue,
   normalizeDensityValue,
-  areSidebarSnapshotsEqual
+  areSidebarSnapshotsEqual,
+  normalizeSourceHtmlForEditor
 };
 
 export function closeAdvancedEditor() {
@@ -1020,7 +1113,7 @@ function editorUiCss(): string {
 
 .mdpdf-editor-main {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: 1fr 330px;
   min-height: 0;
 }
 
@@ -1139,7 +1232,7 @@ function editorUiCss(): string {
   left: 14mm;
 }
 
-.mdpdf-quill-shell {
+.mdpdf-editor-canvas {
   position: relative;
   z-index: 2;
   width: var(--mdpdf-page-width);
@@ -1148,45 +1241,71 @@ function editorUiCss(): string {
   background: transparent;
 }
 
-.mdpdf-quill-shell .ql-container {
-  border: none;
-  font-family: "Vazirmatn", "BNazanin", "BYekan", "Tahoma", sans-serif;
-  font-size: var(--mdpdf-root-font-size);
-  line-height: var(--mdpdf-line-height);
-}
-
-.mdpdf-quill-shell .ql-editor {
+.mdpdf-editor-canvas .mdpdf-tiptap {
   min-height: var(--mdpdf-page-height);
+  border: none;
+  outline: none;
   padding: calc(var(--mdpdf-page-margin-top) + var(--mdpdf-content-extra-top))
     calc(var(--mdpdf-page-margin-inline) + var(--mdpdf-content-extra-inline))
     calc(var(--mdpdf-page-margin-bottom) + var(--mdpdf-content-extra-bottom));
   color: #0f172a;
-  white-space: normal;
+  font-size: var(--mdpdf-root-font-size);
+  line-height: var(--mdpdf-line-height);
+  font-family: "Vazirmatn", "BNazanin", "BYekan", "Tahoma", sans-serif;
+  background: transparent;
 }
 
-.mdpdf-editor-canvas,
-.mdpdf-quill-shell .ql-editor {
-  outline: none;
-}
-
-.mdpdf-quill-shell .ql-editor p,
-.mdpdf-quill-shell .ql-editor ul,
-.mdpdf-quill-shell .ql-editor ol,
-.mdpdf-quill-shell .ql-editor pre,
-.mdpdf-quill-shell .ql-editor table,
-.mdpdf-quill-shell .ql-editor blockquote {
+.mdpdf-editor-canvas .mdpdf-tiptap p,
+.mdpdf-editor-canvas .mdpdf-tiptap ul,
+.mdpdf-editor-canvas .mdpdf-tiptap ol,
+.mdpdf-editor-canvas .mdpdf-tiptap pre,
+.mdpdf-editor-canvas .mdpdf-tiptap table,
+.mdpdf-editor-canvas .mdpdf-tiptap blockquote {
   margin: 0 0 1em;
 }
 
-.mdpdf-quill-shell .ql-editor pre {
-  white-space: pre;
-  overflow: auto;
+.mdpdf-editor-canvas .mdpdf-tiptap ul,
+.mdpdf-editor-canvas .mdpdf-tiptap ol {
+  padding-inline-start: 1.45em;
 }
 
-.mdpdf-editor-canvas-wrap.mdpdf-code-wrap .ql-editor pre {
+.mdpdf-editor-canvas .mdpdf-tiptap pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 10px;
+  overflow: auto;
+  white-space: pre;
+}
+
+.mdpdf-editor-canvas-wrap.mdpdf-code-wrap .mdpdf-tiptap pre {
   white-space: pre-wrap;
   word-break: break-word;
   overflow: visible;
+}
+
+.mdpdf-editor-canvas .mdpdf-tiptap blockquote {
+  border-inline-start: 4px solid #cbd5e1;
+  margin-inline-start: 0;
+  padding-inline: 12px;
+  color: #334155;
+}
+
+.mdpdf-editor-canvas .mdpdf-tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.mdpdf-editor-canvas .mdpdf-tiptap td,
+.mdpdf-editor-canvas .mdpdf-tiptap th {
+  border: 1px solid #d1d5db;
+  padding: 8px;
+  vertical-align: top;
+}
+
+.mdpdf-editor-canvas .mdpdf-tiptap a {
+  color: #0f4c81;
+  text-decoration: none;
 }
 
 .mdpdf-editor-right {

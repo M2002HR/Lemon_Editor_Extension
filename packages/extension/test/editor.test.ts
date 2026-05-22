@@ -85,4 +85,22 @@ describe('editor utilities', () => {
     expect(__editorTestUtils.areSidebarSnapshotsEqual(base, { ...base })).toBe(true);
     expect(__editorTestUtils.areSidebarSnapshotsEqual(base, { ...base, pageBorder: true })).toBe(false);
   });
+
+  it('normalizes source html before handing it to the open-source editor', () => {
+    const source = `
+      <div data-message-author-role="assistant" contenteditable="false">
+        <h2>Title</h2>
+        <p>Body</p>
+        <div class="mdpdf-actions">should be removed</div>
+        <script>alert('x')</script>
+      </div>
+    `;
+
+    const normalized = __editorTestUtils.normalizeSourceHtmlForEditor(source);
+    expect(normalized).toContain('<h2>Title</h2>');
+    expect(normalized).toContain('<p>Body</p>');
+    expect(normalized).not.toContain('mdpdf-actions');
+    expect(normalized).not.toContain('<script');
+    expect(normalized).not.toContain('contenteditable');
+  });
 });
