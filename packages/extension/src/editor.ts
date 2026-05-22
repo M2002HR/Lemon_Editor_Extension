@@ -58,7 +58,7 @@ const BRAND_MARK_URL = chrome.runtime.getURL('branding/lemon-editor-mark-512.png
 const rtlScript = /[\u0590-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 const FONT_SIZE_OPTIONS = ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px'];
 const MM_TO_PX = 96 / 25.4;
-const PREVIEW_PAGE_HEIGHT = 1122.52;
+const PREVIEW_PAGE_HEIGHT = (297 * 96) / 25.4;
 const PREVIEW_MIN_SAFE_BLOCK_HEIGHT = 96;
 const PREVIEW_SHIFT_ATTR = 'data-mdpdf-preview-shift';
 const PREVIEW_BASE_MARGIN_TOP_ATTR = 'data-mdpdf-preview-base-margin-top';
@@ -1098,9 +1098,9 @@ function applyPreviewSettings(root: HTMLElement, canvasWrap: HTMLElement, overla
   const lineHeight = mapLineHeight(options.density);
   const topMargin = options.pageNumbers ? '16mm' : '14mm';
   const bottomMargin = options.pageNumbers ? '18mm' : '14mm';
-  const borderPaddingTop = '0mm';
-  const borderPaddingBottom = '0mm';
-  const borderPaddingSides = '0mm';
+  const borderPaddingTop = options.pageBorder ? '7mm' : '0mm';
+  const borderPaddingBottom = options.pageBorder ? '7mm' : '0mm';
+  const borderPaddingSides = options.pageBorder ? '7mm' : '0mm';
 
   canvasWrap.style.setProperty('--mdpdf-root-font-size', fontSize);
   canvasWrap.style.setProperty('--mdpdf-line-height', lineHeight);
@@ -1756,7 +1756,6 @@ function editorUiCss(): string {
   --mdpdf-content-extra-top: 0mm;
   --mdpdf-content-extra-bottom: 0mm;
   --mdpdf-content-extra-inline: 0mm;
-  --mdpdf-frame-inset: 7mm;
   position: relative;
   overflow: auto;
   padding: 16px;
@@ -1785,7 +1784,10 @@ function editorUiCss(): string {
 
 .mdpdf-page-frame {
   position: absolute;
-  inset: var(--mdpdf-frame-inset);
+  top: var(--mdpdf-page-margin-top);
+  right: var(--mdpdf-page-margin-inline);
+  bottom: var(--mdpdf-page-margin-bottom);
+  left: var(--mdpdf-page-margin-inline);
   border: 1.4px solid #cfd8e6;
   border-radius: 10px;
 }

@@ -48,8 +48,8 @@ describe('editor utilities', () => {
 
     expect(wrap.style.getPropertyValue('--mdpdf-page-margin-top')).toBe('16mm');
     expect(wrap.style.getPropertyValue('--mdpdf-page-margin-bottom')).toBe('18mm');
-    expect(wrap.style.getPropertyValue('--mdpdf-content-extra-top')).toBe('0mm');
-    expect(wrap.style.getPropertyValue('--mdpdf-content-extra-inline')).toBe('0mm');
+    expect(wrap.style.getPropertyValue('--mdpdf-content-extra-top')).toBe('7mm');
+    expect(wrap.style.getPropertyValue('--mdpdf-content-extra-inline')).toBe('7mm');
     expect(editor.getAttribute('dir')).toBe('rtl');
     expect(overlay.getAttribute('dir')).toBe('rtl');
   });
@@ -75,15 +75,15 @@ describe('editor utilities', () => {
     wrap.style.setProperty('--mdpdf-page-height', '297mm');
     wrap.style.setProperty('--mdpdf-page-margin-top', '16mm');
     wrap.style.setProperty('--mdpdf-page-margin-bottom', '18mm');
-    wrap.style.setProperty('--mdpdf-content-extra-top', '10mm');
-    wrap.style.setProperty('--mdpdf-content-extra-bottom', '11mm');
+    wrap.style.setProperty('--mdpdf-content-extra-top', '7mm');
+    wrap.style.setProperty('--mdpdf-content-extra-bottom', '7mm');
 
     const metrics = __editorTestUtils.createPreviewPaginationMetrics(wrap);
 
     expect(Math.round(metrics.pageHeight)).toBe(1123);
-    expect(Math.round(metrics.safeTopOffset)).toBe(98);
-    expect(Math.round(metrics.safeBottomOffset)).toBe(1013);
-    expect(Math.round(metrics.safeHeight)).toBe(915);
+    expect(Math.round(metrics.safeTopOffset)).toBe(87);
+    expect(Math.round(metrics.safeBottomOffset)).toBe(1028);
+    expect(Math.round(metrics.safeHeight)).toBe(941);
   });
 
   it('pushes blocks to next page when they would fall outside page border area', () => {
@@ -91,8 +91,8 @@ describe('editor utilities', () => {
     wrap.style.setProperty('--mdpdf-page-height', '1122.52px');
     wrap.style.setProperty('--mdpdf-page-margin-top', '16mm');
     wrap.style.setProperty('--mdpdf-page-margin-bottom', '18mm');
-    wrap.style.setProperty('--mdpdf-content-extra-top', '10mm');
-    wrap.style.setProperty('--mdpdf-content-extra-bottom', '11mm');
+    wrap.style.setProperty('--mdpdf-content-extra-top', '7mm');
+    wrap.style.setProperty('--mdpdf-content-extra-bottom', '7mm');
 
     const root = document.createElement('div');
     const block = document.createElement('p');
@@ -103,8 +103,8 @@ describe('editor utilities', () => {
 
     __editorTestUtils.stabilizePreviewPagination(root, wrap);
 
-    expect(block.getAttribute('data-mdpdf-preview-shift')).toBe('141');
-    expect(block.style.marginTop).toBe('141px');
+    expect(block.getAttribute('data-mdpdf-preview-shift')).toBe('130');
+    expect(block.style.marginTop).toBe('130px');
   });
 
   it('compares sidebar snapshots deterministically', () => {

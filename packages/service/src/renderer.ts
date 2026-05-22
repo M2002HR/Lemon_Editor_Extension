@@ -78,13 +78,13 @@ body {
 }
 .page-shell {
   display: flow-root;
-  padding: 0;
+  padding: ${options.pageBorder ? '7mm 7mm 7mm 7mm' : '0'};
   position: relative;
   z-index: 2;
 }
 .page-frame {
   position: fixed;
-  inset: 7mm;
+  inset: 0;
   border: 1.4px solid #cdd5e1;
   border-radius: 10px;
   pointer-events: none;
