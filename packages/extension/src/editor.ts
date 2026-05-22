@@ -18,6 +18,7 @@ import TableCell from '@tiptap/extension-table-cell';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import { buildDefaultFilename } from './content/dom.js';
+import { EXTENSION_PDF_BORDER_CONTENT_PADDING_MM } from './config.js';
 import { buildFontFaceCss, getFontFamilies } from './fonts.js';
 import { normalizeExportOptions } from './options.js';
 import type { PdfRenderOptions } from './types.js';
@@ -61,7 +62,6 @@ const MM_TO_PX = 96 / 25.4;
 const PREVIEW_PAGE_HEIGHT = (297 * 96) / 25.4;
 const PREVIEW_MIN_SAFE_BLOCK_HEIGHT = 96;
 const PREVIEW_SAFE_GUARD_PX = 2;
-const PAGE_BORDER_SAFE_PADDING_MM = 10;
 const PREVIEW_SHIFT_ATTR = 'data-mdpdf-preview-shift';
 const PREVIEW_BASE_MARGIN_TOP_ATTR = 'data-mdpdf-preview-base-margin-top';
 const UI_ICON_URLS: Record<string, string> = {
@@ -345,6 +345,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
           <div class="mdpdf-editor-canvas-wrap">
             <div class="mdpdf-page-overlay"></div>
             <div class="mdpdf-editor-canvas"></div>
+            <div class="mdpdf-page-guard" aria-hidden="true"></div>
           </div>
         </section>
 
@@ -359,6 +360,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
   const contextMenu = backdrop.querySelector<HTMLElement>('.mdpdf-context-menu');
   const canvasWrap = backdrop.querySelector<HTMLElement>('.mdpdf-editor-canvas-wrap');
   const overlay = backdrop.querySelector<HTMLElement>('.mdpdf-page-overlay');
+  const guard = backdrop.querySelector<HTMLElement>('.mdpdf-page-guard');
   const filenameInput = backdrop.querySelector<HTMLInputElement>('input[name="filename"]');
   const directionSelect = backdrop.querySelector<HTMLSelectElement>('select[name="direction"]');
   const fontSizeSelect = backdrop.querySelector<HTMLSelectElement>('select[name="fontSize"]');
@@ -374,6 +376,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
     !contextMenu ||
     !canvasWrap ||
     !overlay ||
+    !guard ||
     !filenameInput ||
     !directionSelect ||
     !fontSizeSelect ||
@@ -473,7 +476,8 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
     const root = getEditorRoot();
     applyPreviewSettings(root, canvasWrap, overlay, options);
     stabilizePreviewPagination(root, canvasWrap);
-    renderPageOverlay(root, overlay, options.pageBorder, options.pageNumbers);
+    const pageCount = renderPageOverlay(root, overlay, options.pageBorder, options.pageNumbers);
+    renderPageGuard(guard, canvasWrap, pageCount, options.pageBorder, options.pageNumbers, root.getAttribute('dir') === 'rtl');
   };
 
   const syncLivePreview = () => {
@@ -1100,9 +1104,9 @@ function applyPreviewSettings(root: HTMLElement, canvasWrap: HTMLElement, overla
   const lineHeight = mapLineHeight(options.density);
   const topMargin = options.pageNumbers ? '16mm' : '14mm';
   const bottomMargin = options.pageNumbers ? '18mm' : '14mm';
-  const borderPaddingTop = options.pageBorder ? `${PAGE_BORDER_SAFE_PADDING_MM}mm` : '0mm';
-  const borderPaddingBottom = options.pageBorder ? `${PAGE_BORDER_SAFE_PADDING_MM}mm` : '0mm';
-  const borderPaddingSides = options.pageBorder ? `${PAGE_BORDER_SAFE_PADDING_MM}mm` : '0mm';
+  const borderPaddingTop = options.pageBorder ? `${EXTENSION_PDF_BORDER_CONTENT_PADDING_MM}mm` : '0mm';
+  const borderPaddingBottom = options.pageBorder ? `${EXTENSION_PDF_BORDER_CONTENT_PADDING_MM}mm` : '0mm';
+  const borderPaddingSides = options.pageBorder ? `${EXTENSION_PDF_BORDER_CONTENT_PADDING_MM}mm` : '0mm';
 
   canvasWrap.style.setProperty('--mdpdf-root-font-size', fontSize);
   canvasWrap.style.setProperty('--mdpdf-line-height', lineHeight);
@@ -1119,7 +1123,7 @@ function applyPreviewSettings(root: HTMLElement, canvasWrap: HTMLElement, overla
   overlay.setAttribute('dir', resolvedDir);
 }
 
-function renderPageOverlay(root: HTMLElement, overlay: HTMLElement, showBorder: boolean, showPageNumbers: boolean) {
+function renderPageOverlay(root: HTMLElement, overlay: HTMLElement, showBorder: boolean, showPageNumbers: boolean): number {
   const pageHeight = PREVIEW_PAGE_HEIGHT;
   const totalHeight = Math.max(root.scrollHeight + 80, pageHeight);
   const pageCount = Math.max(1, Math.ceil(totalHeight / pageHeight));
@@ -1146,6 +1150,57 @@ function renderPageOverlay(root: HTMLElement, overlay: HTMLElement, showBorder: 
     }
 
     overlay.appendChild(page);
+  }
+
+  return pageCount;
+}
+
+function renderPageGuard(
+  guard: HTMLElement,
+  canvasWrap: HTMLElement,
+  pageCount: number,
+  enabled: boolean,
+  showPageNumbers: boolean,
+  rtl: boolean
+) {
+  guard.innerHTML = '';
+  if (!enabled || pageCount <= 0) {
+    guard.style.height = '0px';
+    return;
+  }
+
+  const metrics = createPreviewPaginationMetrics(canvasWrap);
+  const topMaskHeight = Math.max(0, Math.floor(metrics.safeTopOffset));
+  const bottomMaskHeight = Math.max(0, Math.floor(metrics.pageHeight - metrics.safeBottomOffset));
+
+  guard.style.height = `${Math.ceil(pageCount * metrics.pageHeight)}px`;
+
+  for (let i = 0; i < pageCount; i += 1) {
+    const page = document.createElement('div');
+    page.className = 'mdpdf-page-guard-box';
+    page.style.top = `${i * metrics.pageHeight}px`;
+
+    const topMask = document.createElement('div');
+    topMask.className = 'mdpdf-page-guard-top';
+    topMask.style.height = `${topMaskHeight}px`;
+
+    const bottomMask = document.createElement('div');
+    bottomMask.className = 'mdpdf-page-guard-bottom';
+    bottomMask.style.height = `${bottomMaskHeight}px`;
+
+    page.append(topMask, bottomMask);
+
+    if (showPageNumbers) {
+      const number = document.createElement('span');
+      number.className = 'mdpdf-page-guard-number';
+      if (rtl) {
+        number.classList.add('mdpdf-page-guard-number-rtl');
+      }
+      number.textContent = `${i + 1}/${pageCount}`;
+      page.appendChild(number);
+    }
+
+    guard.appendChild(page);
   }
 }
 
@@ -1779,6 +1834,16 @@ function editorUiCss(): string {
   z-index: 1;
 }
 
+.mdpdf-page-guard {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--mdpdf-page-width);
+  pointer-events: none;
+  z-index: 3;
+}
+
 .mdpdf-page-box {
   position: absolute;
   left: 0;
@@ -1787,6 +1852,42 @@ function editorUiCss(): string {
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07);
+}
+
+.mdpdf-page-guard-box {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: var(--mdpdf-page-height);
+}
+
+.mdpdf-page-guard-top,
+.mdpdf-page-guard-bottom {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  background: #fff;
+}
+
+.mdpdf-page-guard-top {
+  top: 0;
+}
+
+.mdpdf-page-guard-bottom {
+  bottom: 0;
+}
+
+.mdpdf-page-guard-number {
+  position: absolute;
+  bottom: 6mm;
+  right: 14mm;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.mdpdf-page-guard-number-rtl {
+  right: auto;
+  left: 14mm;
 }
 
 .mdpdf-page-frame {

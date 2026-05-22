@@ -3,10 +3,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { marked } from 'marked';
 import puppeteer from 'puppeteer';
+import { PDF_BORDER_CONTENT_PADDING_MM } from './constants.js';
 import type { PdfDensity, PdfDirection, PdfFontSize, PdfInputFormat, PdfRenderOptions } from './types.js';
 
 const rtlScript = /[\u0590-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
-const PAGE_BORDER_SAFE_PADDING_MM = 10;
 
 interface ResolvedRenderOptions {
   direction: Exclude<PdfDirection, 'auto'>;
@@ -79,7 +79,7 @@ body {
 }
 .page-shell {
   display: flow-root;
-  padding: ${options.pageBorder ? `${PAGE_BORDER_SAFE_PADDING_MM}mm` : '0'};
+  padding: ${options.pageBorder ? `${PDF_BORDER_CONTENT_PADDING_MM}mm` : '0'};
   position: relative;
   z-index: 2;
 }

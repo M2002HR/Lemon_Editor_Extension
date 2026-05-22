@@ -15,6 +15,8 @@ loadDotenv({ path: path.join(repoRoot, '.env'), quiet: true });
 
 const extensionApiBaseUrl = (process.env.EXTENSION_API_BASE_URL ?? 'http://localhost:4000').replace(/\/$/, '');
 const filenamePrefix = process.env.EXTENSION_FILENAME_PREFIX ?? 'chatgpt-answer';
+const borderContentPaddingMm =
+  process.env.EXTENSION_PDF_BORDER_CONTENT_PADDING_MM ?? process.env.SERVICE_PDF_BORDER_CONTENT_PADDING_MM ?? '10';
 
 const buildOptions = {
   absWorkingDir: extensionRoot,
@@ -31,7 +33,8 @@ const buildOptions = {
   logLevel: 'info',
   define: {
     __MDPDF_EXTENSION_API_BASE_URL__: JSON.stringify(extensionApiBaseUrl),
-    __MDPDF_FILENAME_PREFIX__: JSON.stringify(filenamePrefix)
+    __MDPDF_FILENAME_PREFIX__: JSON.stringify(filenamePrefix),
+    __MDPDF_PDF_BORDER_CONTENT_PADDING_MM__: JSON.stringify(borderContentPaddingMm)
   }
 };
 
