@@ -345,7 +345,6 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
           <div class="mdpdf-editor-canvas-wrap">
             <div class="mdpdf-page-overlay"></div>
             <div class="mdpdf-editor-canvas"></div>
-            <div class="mdpdf-page-guard" aria-hidden="true"></div>
           </div>
         </section>
 
@@ -360,7 +359,6 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
   const contextMenu = backdrop.querySelector<HTMLElement>('.mdpdf-context-menu');
   const canvasWrap = backdrop.querySelector<HTMLElement>('.mdpdf-editor-canvas-wrap');
   const overlay = backdrop.querySelector<HTMLElement>('.mdpdf-page-overlay');
-  const guard = backdrop.querySelector<HTMLElement>('.mdpdf-page-guard');
   const filenameInput = backdrop.querySelector<HTMLInputElement>('input[name="filename"]');
   const directionSelect = backdrop.querySelector<HTMLSelectElement>('select[name="direction"]');
   const fontSizeSelect = backdrop.querySelector<HTMLSelectElement>('select[name="fontSize"]');
@@ -376,7 +374,6 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
     !contextMenu ||
     !canvasWrap ||
     !overlay ||
-    !guard ||
     !filenameInput ||
     !directionSelect ||
     !fontSizeSelect ||
@@ -476,8 +473,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
     const root = getEditorRoot();
     applyPreviewSettings(root, canvasWrap, overlay, options);
     stabilizePreviewPagination(root, canvasWrap);
-    const pageCount = renderPageOverlay(root, overlay, options.pageBorder, options.pageNumbers);
-    renderPageGuard(guard, canvasWrap, pageCount, options.pageBorder, options.pageNumbers, root.getAttribute('dir') === 'rtl');
+    renderPageOverlay(root, overlay, options.pageBorder, options.pageNumbers);
   };
 
   const syncLivePreview = () => {
@@ -1125,7 +1121,7 @@ function applyPreviewSettings(root: HTMLElement, canvasWrap: HTMLElement, overla
 
 function renderPageOverlay(root: HTMLElement, overlay: HTMLElement, showBorder: boolean, showPageNumbers: boolean): number {
   const pageHeight = PREVIEW_PAGE_HEIGHT;
-  const totalHeight = Math.max(root.scrollHeight + 80, pageHeight);
+  const totalHeight = Math.max(root.scrollHeight, pageHeight);
   const pageCount = Math.max(1, Math.ceil(totalHeight / pageHeight));
 
   overlay.innerHTML = '';
@@ -1153,55 +1149,6 @@ function renderPageOverlay(root: HTMLElement, overlay: HTMLElement, showBorder: 
   }
 
   return pageCount;
-}
-
-function renderPageGuard(
-  guard: HTMLElement,
-  canvasWrap: HTMLElement,
-  pageCount: number,
-  enabled: boolean,
-  showPageNumbers: boolean,
-  rtl: boolean
-) {
-  guard.innerHTML = '';
-  if (!enabled || pageCount <= 0) {
-    guard.style.height = '0px';
-    return;
-  }
-
-  const metrics = createPreviewPaginationMetrics(canvasWrap);
-  const topMaskHeight = Math.max(0, Math.floor(metrics.safeTopOffset));
-  const bottomMaskHeight = Math.max(0, Math.floor(metrics.pageHeight - metrics.safeBottomOffset));
-
-  guard.style.height = `${Math.ceil(pageCount * metrics.pageHeight)}px`;
-
-  for (let i = 0; i < pageCount; i += 1) {
-    const page = document.createElement('div');
-    page.className = 'mdpdf-page-guard-box';
-    page.style.top = `${i * metrics.pageHeight}px`;
-
-    const topMask = document.createElement('div');
-    topMask.className = 'mdpdf-page-guard-top';
-    topMask.style.height = `${topMaskHeight}px`;
-
-    const bottomMask = document.createElement('div');
-    bottomMask.className = 'mdpdf-page-guard-bottom';
-    bottomMask.style.height = `${bottomMaskHeight}px`;
-
-    page.append(topMask, bottomMask);
-
-    if (showPageNumbers) {
-      const number = document.createElement('span');
-      number.className = 'mdpdf-page-guard-number';
-      if (rtl) {
-        number.classList.add('mdpdf-page-guard-number-rtl');
-      }
-      number.textContent = `${i + 1}/${pageCount}`;
-      page.appendChild(number);
-    }
-
-    guard.appendChild(page);
-  }
 }
 
 function stabilizePreviewPagination(root: HTMLElement, canvasWrap: HTMLElement) {
@@ -1850,16 +1797,6 @@ function editorUiCss(): string {
   z-index: 1;
 }
 
-.mdpdf-page-guard {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: var(--mdpdf-page-width);
-  pointer-events: none;
-  z-index: 3;
-}
-
 .mdpdf-page-box {
   position: absolute;
   left: 0;
@@ -1868,42 +1805,6 @@ function editorUiCss(): string {
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07);
-}
-
-.mdpdf-page-guard-box {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: var(--mdpdf-page-height);
-}
-
-.mdpdf-page-guard-top,
-.mdpdf-page-guard-bottom {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  background: #fff;
-}
-
-.mdpdf-page-guard-top {
-  top: 0;
-}
-
-.mdpdf-page-guard-bottom {
-  bottom: 0;
-}
-
-.mdpdf-page-guard-number {
-  position: absolute;
-  bottom: 6mm;
-  right: 14mm;
-  font-size: 11px;
-  color: #64748b;
-}
-
-.mdpdf-page-guard-number-rtl {
-  right: auto;
-  left: 14mm;
 }
 
 .mdpdf-page-frame {
