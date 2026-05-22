@@ -1,8 +1,8 @@
 import TurndownService from 'turndown';
-import type { DownloadPdfRequest, DownloadPdfResult } from './types.js';
+import type { DownloadPdfResult } from './types.js';
+import { ACTION_CLASS, ENHANCED_ATTRIBUTE, buildDefaultFilename, extractMessageHtml, findAssistantMessages } from './content/dom.js';
+import { buildDownloadRequest } from './content/messages.js';
 
-const ENHANCED_ATTRIBUTE = 'data-mdpdf-enhanced';
-const ACTION_CLASS = 'mdpdf-action-row';
 const STATUS_CLASS = 'mdpdf-status';
 const BUTTON_CLASS = 'mdpdf-button';
 
@@ -33,10 +33,6 @@ function scanAndEnhance() {
     message.setAttribute(ENHANCED_ATTRIBUTE, 'true');
     attachActionRow(message);
   }
-}
-
-function findAssistantMessages(root: ParentNode): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>('[data-message-author-role="assistant"]'));
 }
 
 function attachActionRow(messageElement: HTMLElement) {
@@ -70,15 +66,7 @@ async function downloadMessagePdf(messageElement: HTMLElement, button: HTMLButto
 
     const markdown = turndown.turndown(html);
     const filename = buildDefaultFilename();
-
-    const request: DownloadPdfRequest = {
-      type: 'DOWNLOAD_PDF_REQUEST',
-      payload: {
-        markdown,
-        title: 'ChatGPT Answer',
-        filename
-      }
-    };
+    const request = buildDownloadRequest(markdown, filename);
 
     const result = await sendMessage<DownloadPdfResult>(request);
 
@@ -94,30 +82,6 @@ async function downloadMessagePdf(messageElement: HTMLElement, button: HTMLButto
     const message = error instanceof Error ? error.message : 'Failed to export PDF.';
     setButtonState(button, status, false, message);
   }
-}
-
-function extractMessageHtml(messageElement: HTMLElement): string {
-  const clone = messageElement.cloneNode(true) as HTMLElement;
-  clone.querySelectorAll(`.${ACTION_CLASS}`).forEach((element) => element.remove());
-  clone.querySelectorAll('button, textarea').forEach((element) => element.remove());
-
-  const contentElement = clone.querySelector<HTMLElement>('.markdown, .prose, [data-message-content], [dir]');
-  if (contentElement) {
-    return contentElement.innerHTML;
-  }
-
-  return clone.innerHTML;
-}
-
-function buildDefaultFilename(date = new Date()): string {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mi = String(date.getMinutes()).padStart(2, '0');
-  const ss = String(date.getSeconds()).padStart(2, '0');
-
-  return `chatgpt-answer-${yyyy}${mm}${dd}-${hh}${mi}${ss}.pdf`;
 }
 
 function setButtonState(button: HTMLButtonElement, status: HTMLElement, loading: boolean, message: string) {
