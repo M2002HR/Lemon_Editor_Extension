@@ -47,6 +47,7 @@ export function createApp(options: CreateAppOptions = {}) {
   });
 
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    void _next;
     if (error instanceof HttpError) {
       res.status(error.status).json({ error: error.message });
       return;
