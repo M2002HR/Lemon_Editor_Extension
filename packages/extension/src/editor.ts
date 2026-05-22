@@ -49,11 +49,14 @@ interface SidebarSnapshot {
 
 const EDITOR_BACKDROP_ID = 'mdpdf-editor-backdrop';
 const BRAND_MARK_URL = chrome.runtime.getURL('branding/lemon-editor-mark-512.png');
+const FLATICON_UI_CSS_URL = chrome.runtime.getURL('uicons/regular/rounded.css');
+const FLATICON_UI_LINK_ID = 'mdpdf-flaticon-uicons-css';
 const rtlScript = /[\u0590-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 const FONT_SIZE_OPTIONS = ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px'];
 
 export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportResult | null> {
   closeAdvancedEditor();
+  ensureFlaticonUiIconsLoaded();
 
   const backdrop = document.createElement('div');
   backdrop.id = EDITOR_BACKDROP_ID;
@@ -84,70 +87,137 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
       <div class="mdpdf-editor-main">
         <section class="mdpdf-editor-left">
           <div class="mdpdf-editor-toolbar" role="toolbar" aria-label="Text tools">
-            <button type="button" data-action="undo">Undo</button>
-            <button type="button" data-action="redo">Redo</button>
-
-            <button type="button" data-action="bold"><b>B</b></button>
-            <button type="button" data-action="italic"><i>I</i></button>
-            <button type="button" data-action="underline"><u>U</u></button>
-            <button type="button" data-action="strike"><s>S</s></button>
-            <button type="button" data-action="code">Inline Code</button>
-
-            <button type="button" data-action="paragraph">P</button>
-            <button type="button" data-action="h1">H1</button>
-            <button type="button" data-action="h2">H2</button>
-            <button type="button" data-action="h3">H3</button>
-            <button type="button" data-action="blockquote">Quote</button>
-            <button type="button" data-action="codeblock">Code Block</button>
-
-            <button type="button" data-action="bulletList">• List</button>
-            <button type="button" data-action="orderedList">1. List</button>
-            <button type="button" data-action="taskList">☐ Task</button>
-
-            <button type="button" data-action="alignLeft">Left</button>
-            <button type="button" data-action="alignCenter">Center</button>
-            <button type="button" data-action="alignRight">Right</button>
-            <button type="button" data-action="alignJustify">Justify</button>
-
-            <button type="button" data-action="rtl">RTL Line</button>
-            <button type="button" data-action="ltr">LTR Line</button>
-
-            <select class="mdpdf-editor-select" name="fontFamily" title="Font family">
-              <option value="">Font</option>
+            <datalist id="mdpdf-font-list">
               ${fontOptions}
-            </select>
+            </datalist>
 
-            <select class="mdpdf-editor-select" name="fontSizePx" title="Selected text size">
-              <option value="">Text size</option>
-              ${FONT_SIZE_OPTIONS.map((size) => `<option value="${size}">${size}</option>`).join('')}
-            </select>
+            <div class="mdpdf-tool-group">
+              <span class="mdpdf-tool-title">History</span>
+              <div class="mdpdf-tool-items">
+                <button type="button" data-action="undo" title="Undo"><i class="fi-rr-undo"></i><span>Undo</span></button>
+                <button type="button" data-action="redo" title="Redo"><i class="fi-rr-redo"></i><span>Redo</span></button>
+              </div>
+            </div>
 
-            <label class="mdpdf-color-tool" title="Text color">
-              <span>Text</span>
-              <input type="color" name="textColor" value="#0f172a" />
-            </label>
-            <label class="mdpdf-color-tool" title="Background color">
-              <span>Mark</span>
-              <input type="color" name="highlightColor" value="#fff59d" />
-            </label>
+            <div class="mdpdf-tool-group">
+              <span class="mdpdf-tool-title">Text</span>
+              <div class="mdpdf-tool-items">
+                <button type="button" data-action="bold" title="Bold"><i class="fi-rr-bold"></i><span>Bold</span></button>
+                <button type="button" data-action="italic" title="Italic"><i class="fi-rr-italic"></i><span>Italic</span></button>
+                <button type="button" data-action="underline" title="Underline"><i class="fi-rr-underline"></i><span>Underline</span></button>
+                <button type="button" data-action="strike" title="Strike"><i class="fi-rr-text-slash"></i><span>Strike</span></button>
+                <button type="button" data-action="code" title="Inline code"><i class="fi-rr-code-simple"></i><span>Code</span></button>
+              </div>
+            </div>
 
-            <button type="button" data-action="applyTextColor">Apply Text</button>
-            <button type="button" data-action="applyHighlight">Apply Mark</button>
+            <div class="mdpdf-tool-group">
+              <span class="mdpdf-tool-title">Blocks</span>
+              <div class="mdpdf-tool-items">
+                <button type="button" data-action="paragraph" title="Paragraph"><i class="fi-rr-paragraph"></i><span>P</span></button>
+                <button type="button" data-action="h1" title="Heading 1"><i class="fi-rr-heading"></i><span>H1</span></button>
+                <button type="button" data-action="h2" title="Heading 2"><i class="fi-rr-heading"></i><span>H2</span></button>
+                <button type="button" data-action="h3" title="Heading 3"><i class="fi-rr-heading"></i><span>H3</span></button>
+                <button type="button" data-action="blockquote" title="Quote"><i class="fi-rr-quote-right"></i><span>Quote</span></button>
+                <button type="button" data-action="codeblock" title="Code block"><i class="fi-rr-code-branch"></i><span>Code block</span></button>
+              </div>
+            </div>
 
-            <button type="button" data-action="setLink">Link</button>
-            <button type="button" data-action="unsetLink">Unlink</button>
-            <button type="button" data-action="insertImage">Image URL</button>
+            <div class="mdpdf-tool-group">
+              <span class="mdpdf-tool-title">Lists</span>
+              <div class="mdpdf-tool-items">
+                <button type="button" data-action="bulletList" title="Bullet list"><i class="fi-rr-list"></i><span>Bullet</span></button>
+                <button type="button" data-action="orderedList" title="Numbered list"><i class="fi-rr-list-check"></i><span>Number</span></button>
+                <button type="button" data-action="taskList" title="Task list"><i class="fi-rr-checklist-task-budget"></i><span>Task</span></button>
+              </div>
+            </div>
 
-            <button type="button" data-action="insertTable">Table</button>
-            <button type="button" data-action="addRowAfter">+Row</button>
-            <button type="button" data-action="addColumnAfter">+Col</button>
-            <button type="button" data-action="mergeCells">Merge</button>
-            <button type="button" data-action="splitCell">Split</button>
-            <button type="button" data-action="deleteTable">Del Table</button>
+            <div class="mdpdf-tool-group">
+              <span class="mdpdf-tool-title">Align & Dir</span>
+              <div class="mdpdf-tool-items">
+                <button type="button" data-action="alignLeft" title="Align left"><i class="fi-rr-align-left"></i><span>Left</span></button>
+                <button type="button" data-action="alignCenter" title="Align center"><i class="fi-rr-align-center"></i><span>Center</span></button>
+                <button type="button" data-action="alignRight" title="Align right"><i class="fi-rr-align-left mdpdf-icon-flip"></i><span>Right</span></button>
+                <button type="button" data-action="alignJustify" title="Justify"><i class="fi-rr-align-justify"></i><span>Justify</span></button>
+                <button type="button" data-action="rtl" title="Right to left line"><i class="fi-rr-text-width"></i><span>RTL</span></button>
+                <button type="button" data-action="ltr" title="Left to right line"><i class="fi-rr-text-width mdpdf-icon-flip"></i><span>LTR</span></button>
+              </div>
+            </div>
 
-            <button type="button" data-action="subscript">Sub</button>
-            <button type="button" data-action="superscript">Sup</button>
-            <button type="button" data-action="clear">Clear</button>
+            <div class="mdpdf-tool-group">
+              <span class="mdpdf-tool-title">Font & Color</span>
+              <div class="mdpdf-tool-items">
+                <label class="mdpdf-font-search-wrap" title="Search and apply font">
+                  <i class="fi-rr-book-font"></i>
+                  <input class="mdpdf-editor-select mdpdf-font-search" name="fontFamilySearch" list="mdpdf-font-list" placeholder="Search font..." />
+                </label>
+                <select class="mdpdf-editor-select" name="fontSizePx" title="Selected text size">
+                  <option value="">Text size</option>
+                  ${FONT_SIZE_OPTIONS.map((size) => `<option value="${size}">${size}</option>`).join('')}
+                </select>
+                <label class="mdpdf-color-tool" title="Text color">
+                  <i class="fi-rr-palette"></i>
+                  <span>Text</span>
+                  <input type="color" name="textColor" value="#0f172a" />
+                </label>
+                <label class="mdpdf-color-tool" title="Background color">
+                  <i class="fi-rr-highlighter"></i>
+                  <span>Mark</span>
+                  <input type="color" name="highlightColor" value="#fff59d" />
+                </label>
+                <button type="button" data-action="applyTextColor" title="Apply text color"><i class="fi-rr-paint-brush"></i><span>Apply text</span></button>
+                <button type="button" data-action="applyHighlight" title="Apply highlight"><i class="fi-rr-highlighter-line"></i><span>Apply mark</span></button>
+              </div>
+            </div>
+
+            <div class="mdpdf-tool-group">
+              <span class="mdpdf-tool-title">Insert</span>
+              <div class="mdpdf-tool-items">
+                <button type="button" data-action="setLink" title="Set link"><i class="fi-rr-link"></i><span>Link</span></button>
+                <button type="button" data-action="unsetLink" title="Unset link"><i class="fi-rr-link-slash"></i><span>Unlink</span></button>
+                <button type="button" data-action="insertImage" title="Insert image by URL"><i class="fi-rr-images"></i><span>Image</span></button>
+                <button type="button" data-action="insertTable" title="Insert table"><i class="fi-rr-table-columns"></i><span>Table</span></button>
+                <button type="button" data-action="addRowAfter" title="Add row"><i class="fi-rr-add"></i><span>+Row</span></button>
+                <button type="button" data-action="addColumnAfter" title="Add column"><i class="fi-rr-add"></i><span>+Col</span></button>
+                <button type="button" data-action="mergeCells" title="Merge cells"><i class="fi-rr-table-layout"></i><span>Merge</span></button>
+                <button type="button" data-action="splitCell" title="Split cells"><i class="fi-rr-table-rows"></i><span>Split</span></button>
+                <button type="button" data-action="deleteTable" title="Delete table"><i class="fi-rr-trash"></i><span>Delete table</span></button>
+              </div>
+            </div>
+
+            <div class="mdpdf-tool-group">
+              <span class="mdpdf-tool-title">Advanced</span>
+              <div class="mdpdf-tool-items">
+                <button type="button" data-action="subscript" title="Subscript"><i class="fi-rr-subscript"></i><span>Sub</span></button>
+                <button type="button" data-action="superscript" title="Superscript"><i class="fi-rr-superscript"></i><span>Sup</span></button>
+                <button type="button" data-action="clear" title="Clear formatting"><i class="fi-rr-eraser"></i><span>Clear</span></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mdpdf-context-menu" hidden>
+            <div class="mdpdf-context-menu-header">Quick Actions</div>
+            <div class="mdpdf-context-menu-row">
+              <button type="button" data-context-action="bold"><i class="fi-rr-bold"></i></button>
+              <button type="button" data-context-action="italic"><i class="fi-rr-italic"></i></button>
+              <button type="button" data-context-action="underline"><i class="fi-rr-underline"></i></button>
+              <button type="button" data-context-action="highlight"><i class="fi-rr-highlighter-line"></i></button>
+            </div>
+            <div class="mdpdf-context-menu-row">
+              <label>
+                <span>Font</span>
+                <input name="contextFontFamilySearch" list="mdpdf-font-list" placeholder="Search font..." />
+              </label>
+            </div>
+            <div class="mdpdf-context-menu-row">
+              <label>
+                <span>Text</span>
+                <input type="color" name="contextTextColor" value="#0f172a" />
+              </label>
+              <label>
+                <span>Mark</span>
+                <input type="color" name="contextHighlightColor" value="#fff59d" />
+              </label>
+            </div>
           </div>
 
           <div class="mdpdf-editor-canvas-wrap">
@@ -219,6 +289,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
   document.body.appendChild(backdrop);
 
   const editorContainer = backdrop.querySelector<HTMLElement>('.mdpdf-editor-canvas');
+  const contextMenu = backdrop.querySelector<HTMLElement>('.mdpdf-context-menu');
   const canvasWrap = backdrop.querySelector<HTMLElement>('.mdpdf-editor-canvas-wrap');
   const overlay = backdrop.querySelector<HTMLElement>('.mdpdf-page-overlay');
   const filenameInput = backdrop.querySelector<HTMLInputElement>('input[name="filename"]');
@@ -235,6 +306,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
 
   if (
     !editorContainer ||
+    !contextMenu ||
     !canvasWrap ||
     !overlay ||
     !filenameInput ||
@@ -475,7 +547,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
 
     const textColorInput = backdrop.querySelector<HTMLInputElement>('input[name="textColor"]');
     const highlightColorInput = backdrop.querySelector<HTMLInputElement>('input[name="highlightColor"]');
-    const fontFamilySelect = backdrop.querySelector<HTMLSelectElement>('select[name="fontFamily"]');
+    const fontFamilySearch = backdrop.querySelector<HTMLInputElement>('input[name="fontFamilySearch"]');
     const fontSizePxSelect = backdrop.querySelector<HTMLSelectElement>('select[name="fontSizePx"]');
 
     const attrs = editor.getAttributes('textStyle') as {
@@ -493,8 +565,8 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
       highlightColorInput.value = normalizeHexColor(attrs.backgroundColor);
     }
 
-    if (fontFamilySelect) {
-      fontFamilySelect.value = attrs.fontFamily ?? '';
+    if (fontFamilySearch) {
+      fontFamilySearch.value = attrs.fontFamily ?? '';
     }
 
     if (fontSizePxSelect) {
@@ -522,6 +594,8 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
     editor.commands.redo();
     syncLivePreview();
   });
+
+  const cleanupContextMenu = wireContextMenu(backdrop, editor, setActiveStates, syncLivePreview);
 
   editor.on('update', () => {
     setActiveStates();
@@ -592,6 +666,7 @@ export function openAdvancedEditor(args: OpenEditorArgs): Promise<EditorExportRe
         URL.revokeObjectURL(previewUrl);
       }
 
+      cleanupContextMenu();
       editor.destroy();
     };
 
@@ -812,16 +887,25 @@ function wireToolbar(
     syncLivePreview();
   });
 
-  const fontSelect = toolbar.querySelector<HTMLSelectElement>('select[name="fontFamily"]');
-  if (fontSelect) {
-    fontSelect.addEventListener('change', () => {
+  const fontSearch = toolbar.querySelector<HTMLInputElement>('input[name="fontFamilySearch"]');
+  if (fontSearch) {
+    const applyFontFromSearch = () => {
+      const value = fontSearch.value.trim();
       editor.commands.focus();
-      if (!fontSelect.value) {
+      if (!value) {
         editor.chain().focus().unsetFontFamily().run();
       } else {
-        editor.chain().focus().setFontFamily(fontSelect.value).run();
+        editor.chain().focus().setFontFamily(value).run();
       }
       syncLivePreview();
+    };
+
+    fontSearch.addEventListener('change', applyFontFromSearch);
+    fontSearch.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        applyFontFromSearch();
+      }
     });
   }
 
@@ -837,6 +921,161 @@ function wireToolbar(
       syncLivePreview();
     });
   }
+}
+
+function wireContextMenu(
+  backdrop: HTMLElement,
+  editor: Editor,
+  setActiveStates: () => void,
+  syncLivePreview: () => void
+): () => void {
+  const menu = backdrop.querySelector<HTMLElement>('.mdpdf-context-menu');
+  const editorRoot = backdrop.querySelector<HTMLElement>('.mdpdf-editor-canvas .mdpdf-tiptap');
+  if (!menu || !editorRoot) {
+    return () => undefined;
+  }
+
+  const textColorInput = menu.querySelector<HTMLInputElement>('input[name="contextTextColor"]');
+  const highlightColorInput = menu.querySelector<HTMLInputElement>('input[name="contextHighlightColor"]');
+  const fontSearchInput = menu.querySelector<HTMLInputElement>('input[name="contextFontFamilySearch"]');
+
+  const closeMenu = () => {
+    menu.hidden = true;
+  };
+
+  const openMenu = (clientX: number, clientY: number) => {
+    const rect = backdrop.getBoundingClientRect();
+    const left = Math.max(8, Math.min(clientX - rect.left, rect.width - 280));
+    const top = Math.max(8, Math.min(clientY - rect.top, rect.height - 220));
+
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+    menu.hidden = false;
+  };
+
+  const runSimpleAction = (action: 'bold' | 'italic' | 'underline' | 'highlight') => {
+    editor.commands.focus();
+
+    if (action === 'bold') {
+      editor.chain().focus().toggleBold().run();
+    } else if (action === 'italic') {
+      editor.chain().focus().toggleItalic().run();
+    } else if (action === 'underline') {
+      editor.chain().focus().toggleUnderline().run();
+    } else if (action === 'highlight') {
+      const color = highlightColorInput?.value || '#fff59d';
+      editor.chain().focus().setBackgroundColor(color).run();
+    }
+
+    setActiveStates();
+    syncLivePreview();
+  };
+
+  const onContextMenu = (event: MouseEvent) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    if (!editorRoot.contains(range.commonAncestorContainer)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const attrs = editor.getAttributes('textStyle') as { color?: string; backgroundColor?: string; fontFamily?: string };
+    if (textColorInput && attrs.color) {
+      textColorInput.value = normalizeHexColor(attrs.color);
+    }
+    if (highlightColorInput && attrs.backgroundColor) {
+      highlightColorInput.value = normalizeHexColor(attrs.backgroundColor);
+    }
+    if (fontSearchInput && attrs.fontFamily) {
+      fontSearchInput.value = attrs.fontFamily;
+    }
+
+    openMenu(event.clientX, event.clientY);
+  };
+
+  const onMenuClick = (event: Event) => {
+    const target = event.target as HTMLElement;
+    const button = target.closest<HTMLButtonElement>('button[data-context-action]');
+    if (!button) {
+      return;
+    }
+
+    const action = button.getAttribute('data-context-action');
+    if (action === 'bold' || action === 'italic' || action === 'underline' || action === 'highlight') {
+      runSimpleAction(action);
+    }
+  };
+
+  const applyTextColor = () => {
+    const value = textColorInput?.value?.trim();
+    if (!value) {
+      return;
+    }
+
+    editor.chain().focus().setColor(value).run();
+    setActiveStates();
+    syncLivePreview();
+  };
+
+  const applyFont = () => {
+    const value = fontSearchInput?.value?.trim();
+    if (!fontSearchInput) {
+      return;
+    }
+
+    if (!value) {
+      editor.chain().focus().unsetFontFamily().run();
+    } else {
+      editor.chain().focus().setFontFamily(value).run();
+    }
+    setActiveStates();
+    syncLivePreview();
+  };
+
+  const onGlobalMouseDown = (event: MouseEvent) => {
+    const target = event.target as Node;
+    if (!menu.contains(target)) {
+      closeMenu();
+    }
+  };
+
+  const onGlobalKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      closeMenu();
+    }
+  };
+
+  const scrollHost = backdrop.querySelector('.mdpdf-editor-canvas-wrap');
+
+  editorRoot.addEventListener('contextmenu', onContextMenu);
+  menu.addEventListener('click', onMenuClick);
+  textColorInput?.addEventListener('input', applyTextColor);
+  fontSearchInput?.addEventListener('change', applyFont);
+  fontSearchInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      applyFont();
+    }
+  });
+  document.addEventListener('mousedown', onGlobalMouseDown, true);
+  document.addEventListener('keydown', onGlobalKeyDown, true);
+  scrollHost?.addEventListener('scroll', closeMenu, { passive: true });
+
+  return () => {
+    editorRoot.removeEventListener('contextmenu', onContextMenu);
+    menu.removeEventListener('click', onMenuClick);
+    textColorInput?.removeEventListener('input', applyTextColor);
+    fontSearchInput?.removeEventListener('change', applyFont);
+    document.removeEventListener('mousedown', onGlobalMouseDown, true);
+    document.removeEventListener('keydown', onGlobalKeyDown, true);
+    scrollHost?.removeEventListener('scroll', closeMenu);
+    closeMenu();
+  };
 }
 
 function normalizeSourceHtmlForEditor(html: string): string {
@@ -1029,6 +1268,18 @@ export function closeAdvancedEditor() {
   }
 }
 
+function ensureFlaticonUiIconsLoaded() {
+  if (document.getElementById(FLATICON_UI_LINK_ID)) {
+    return;
+  }
+
+  const link = document.createElement('link');
+  link.id = FLATICON_UI_LINK_ID;
+  link.rel = 'stylesheet';
+  link.href = FLATICON_UI_CSS_URL;
+  document.head.appendChild(link);
+}
+
 function normalizeFilename(value: string, fallback: string): string {
   const safe = value
     .trim()
@@ -1132,13 +1383,13 @@ function editorUiCss(): string {
 }
 
 .mdpdf-editor-toolbar {
-  padding: 10px 12px;
+  padding: 10px 12px 12px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   border-bottom: 1px solid #dbe6f8;
-  background: #ffffff;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
 }
 
 .mdpdf-editor-toolbar button,
@@ -1148,7 +1399,7 @@ function editorUiCss(): string {
   background: #fff;
   color: #0f172a;
   font-size: 12px;
-  padding: 5px 9px;
+  padding: 6px 9px;
   cursor: pointer;
 }
 
@@ -1159,6 +1410,69 @@ function editorUiCss(): string {
 
 .mdpdf-editor-select {
   min-width: 126px;
+}
+
+.mdpdf-tool-group {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid #deebff;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.mdpdf-tool-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #4b648f;
+  text-transform: uppercase;
+}
+
+.mdpdf-tool-items {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.mdpdf-editor-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mdpdf-editor-toolbar button i,
+.mdpdf-color-tool i,
+.mdpdf-font-search-wrap i {
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+}
+
+.mdpdf-editor-toolbar button span {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.mdpdf-icon-flip {
+  transform: scaleX(-1);
+}
+
+.mdpdf-font-search-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #c9d8f1;
+  border-radius: 8px;
+  background: #fff;
+  padding-inline-start: 8px;
+}
+
+.mdpdf-font-search {
+  min-width: 180px;
+  border: 0 !important;
+  padding-inline-start: 0 !important;
 }
 
 .mdpdf-color-tool {
@@ -1179,6 +1493,73 @@ function editorUiCss(): string {
   border: none;
   padding: 0;
   background: transparent;
+}
+
+.mdpdf-context-menu {
+  position: fixed;
+  z-index: 2147483647;
+  min-width: 280px;
+  border-radius: 12px;
+  border: 1px solid #c8d8f3;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22);
+  padding: 8px;
+}
+
+.mdpdf-context-menu-header {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4b648f;
+  margin-bottom: 6px;
+}
+
+.mdpdf-context-menu-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.mdpdf-context-menu-row:last-child {
+  margin-bottom: 0;
+}
+
+.mdpdf-context-menu button {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #c9d8f1;
+  background: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mdpdf-context-menu button i {
+  font-size: 14px;
+}
+
+.mdpdf-context-menu label {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  color: #475569;
+}
+
+.mdpdf-context-menu input[type="color"] {
+  width: 34px;
+  height: 30px;
+  border: 1px solid #c9d8f1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.mdpdf-context-menu input[list] {
+  border: 1px solid #c9d8f1;
+  border-radius: 8px;
+  padding: 6px 8px;
+  min-width: 170px;
 }
 
 .mdpdf-editor-canvas-wrap {
