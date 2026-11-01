@@ -16,7 +16,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.1.0",
     "marked": "^15.0.12",
-    "puppeteer": "^24.9.0"
+    "puppeteer": "^25.16.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
